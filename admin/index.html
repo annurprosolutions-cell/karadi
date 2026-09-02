@@ -1,1459 +1,1226 @@
 <!DOCTYPE html>
 <html lang="ms">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Pemantauan Aduan Rakyat Karambunai</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KARA-Di — Dashboard Admin</title>
 
-    <!-- Libraries -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- BAHARU: PapaParse dibuang — tak diperlukan lagi sebab data admin kini
-         datang dari Apps Script (JSON, sudah authenticated), bukan CSV public. -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Fonts: Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#1A4A9A',
-                        primaryDark: '#153e85',
-                        bgLight: '#F5F6F8',
-                        textMain: '#1F2937',
-                        statusSemakan: '#1A4A9A',
-                        statusProses: '#f59e0b',
-                        statusSelesai: '#10b981',
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                    borderRadius: {
-                        DEFAULT: '4px',
-                        'md': '6px',
-                        'lg': '8px',
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body { font-family: 'Inter', sans-serif; background-color: #F5F6F8; color: #333; }
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-        /* Loading Overlay */
-        #loading-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #ffffff; z-index: 9999;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-        }
-        .spinner {
-            border: 3px solid #e5e7eb;
-            border-top: 3px solid #1A4A9A;
-            border-radius: 50%;
-            width: 40px; height: 40px; animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        /* Login Screen Overlay */
-        #login-screen {
-            background-image: radial-gradient(#1A4A9A 0.5px, transparent 0.5px), radial-gradient(#1A4A9A 0.5px, #F5F6F8 0.5px);
-            background-size: 20px 20px;
-            background-position: 0 0, 10px 10px;
-            background-color: #F5F6F8;
-        }
-        /* PDF Preview Area */
-        #pdf-preview-modal, #edit-status-modal {
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(2px);
-        }
-        .a4-page {
-            width: 210mm;
-            min-height: 297mm;
-            padding: 20mm;
-            margin: 0 auto;
-            background: white;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            position: relative;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-        }
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        ink:    '#0F172A',
+        navy:   '#12275B',
+        brand:  '#1A4A9A',
+        brand2: '#2563EB',
+        mist:   '#F1F5F9'
+      },
+      fontFamily: { sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'] }
+    }
+  }
+}
+</script>
 
-        /* Print/PDF Specific Styles */
-        .pdf-header {
-            border-bottom: 2px solid #1A4A9A;
-            padding-bottom: 15px;
-            margin-bottom: 25px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-        }
-        .pdf-logo { height: 65px; }
-        .pdf-title { text-align: right; }
-        .pdf-title h1 { font-size: 18px; font-weight: 700; color: #1A4A9A; margin: 0; text-transform: uppercase; letter-spacing: 0.5px; }
-        .pdf-title p { font-size: 11px; color: #555; margin: 4px 0 0 0; }
+<style>
+  body { font-family:'Plus Jakarta Sans', system-ui, sans-serif; background:#F1F5F9; }
+  .spinner { border:3px solid #e2e8f0; border-top:3px solid #1A4A9A; border-radius:50%; width:38px; height:38px; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .fade-in { animation:fade .25s ease-out; }
+  @keyframes fade { from { opacity:0; transform:translateY(4px);} to { opacity:1; transform:none;} }
 
-        .pdf-footer {
-            margin-top: auto;
-            width: 100%;
-            text-align: center;
-            font-size: 9px;
-            color: #6b7280;
-            border-top: 1px solid #e5e7eb;
-            padding-top: 12px;
-        }
-        .pdf-content-body { flex: 1; }
-        /* Status Badges */
-        .status-badge {
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.025em;
-        }
-        .status-selesai { background-color: #d1fae5; color: #047857; border: 1px solid #a7f3d0; } /* Hijau */
-        .status-proses { background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a; } /* Kuning */
-        .status-semakan { background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; } /* Biru */
+  .side-link { display:flex; align-items:center; gap:.75rem; padding:.625rem .875rem; border-radius:.625rem;
+               font-size:.875rem; font-weight:500; color:#CBD5E1; transition:all .15s; }
+  .side-link:hover { background:rgba(255,255,255,.08); color:#fff; }
+  .side-link.active { background:#fff; color:#12275B; font-weight:700; box-shadow:0 4px 12px rgba(0,0,0,.15); }
+  .side-link i { width:1.15rem; text-align:center; }
 
-        /* Table Scroll */
-        .table-container { overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 8px; }
+  .pill { padding:.25rem .625rem; border-radius:9999px; font-size:.6875rem; font-weight:700; letter-spacing:.02em; white-space:nowrap; }
+  .pill-semakan { background:#DBEAFE; color:#1D4ED8; }
+  .pill-proses  { background:#FEF3C7; color:#B45309; }
+  .pill-selesai { background:#D1FAE5; color:#047857; }
 
-        /* Nav Active State */
-        .nav-item.active {
-            background-color: #1A4A9A;
-            color: white;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-        }
-        .nav-item:hover:not(.active) {
-            background-color: #f3f4f6;
-            color: #1A4A9A;
-        }
-        /* Stat Cards for PDF */
-        .pdf-stat-grid { display: flex; gap: 15px; margin-bottom: 25px; }
-        .pdf-stat-card {
-            flex: 1;
-            border: 1px solid #e5e7eb;
-            padding: 12px;
-            border-radius: 6px;
-            background: #ffffff;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-        .pdf-stat-label { font-size: 9px; color: #6b7280; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 4px; }
-        .pdf-stat-value { font-size: 20px; font-weight: 700; color: #111827; }
-        /* Desktop Sidebar Collapsed State */
-        @media (min-width: 1024px) {
-            .desktop-collapsed {
-                width: 0 !important;
-                padding: 0 !important;
-                border: none !important;
-                overflow: hidden;
-            }
-        }
+  ::-webkit-scrollbar { width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb { background:#CBD5E1; border-radius:4px; }
+  ::-webkit-scrollbar-thumb:hover { background:#94A3B8; }
+  ::-webkit-scrollbar-track { background:transparent; }
 
-        /* Checkbox Custom Style */
-        .checkbox-wrapper input:checked + div {
-            background-color: #1A4A9A;
-            border-color: #1A4A9A;
-        }
-        .checkbox-wrapper input:checked + div svg {
-            display: block;
-        }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        /* Toast Notifications */
-        .toast {
-            transform: translateX(120%);
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .toast.show {
-            transform: translateX(0);
-        }
-    </style>
+  .toast { transform:translateX(120%); transition:transform .3s cubic-bezier(.16,1,.3,1); }
+  .toast.show { transform:translateX(0); }
+
+  .a4 { width:210mm; min-height:297mm; padding:16mm; margin:0 auto; background:#fff; box-sizing:border-box;
+        display:flex; flex-direction:column; box-shadow:0 10px 30px rgba(0,0,0,.12); }
+  table.data th { position:sticky; top:0; z-index:5; }
+</style>
 </head>
-<!-- -->
-<body class="flex h-screen overflow-hidden text-gray-800">
-    <!-- Login Screen -->
-    <div id="login-screen" class="fixed inset-0 z-[10000] flex items-center justify-center p-4">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm border border-gray-200 relative overflow-hidden">
-            <!-- Decorative Top Bar -->
-            <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-600 to-blue-800"></div>
 
-            <div class="text-center mb-8 mt-2">
-                <div class="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-100 shadow-inner">
-                    <img src="https://i.postimg.cc/MptXDDPS/karadi.png" alt="Logo" class="h-12 opacity-90">
-                </div>
-                <h2 class="text-xl font-bold text-[#1A4A9A] uppercase tracking-wide">Log Masuk Admin</h2>
-                <p class="text-gray-400 text-xs mt-1">Sistem Aduan Rakyat Karambunai</p>
-            </div>
-            <form id="loginForm" onsubmit="event.preventDefault(); UI.handleLogin();">
-                <div class="mb-4">
-                    <label class="block text-xs font-bold text-gray-600 uppercase mb-2 tracking-wider">Emel Admin</label>
-                    <div class="relative group">
-                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 group-focus-within:text-[#1A4A9A] transition-colors">
-                            <i class="fas fa-user"></i>
-                        </span>
-                        <input type="email" id="loginId" class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1A4A9A] focus:border-[#1A4A9A] focus:outline-none text-sm transition-all" placeholder="Masukkan emel admin">
-                    </div>
-                </div>
+<body class="text-ink">
 
-                <div class="mb-6">
-                    <label class="block text-xs font-bold text-gray-600 uppercase mb-2 tracking-wider">Kata Laluan</label>
-                    <div class="relative group">
-                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 group-focus-within:text-[#1A4A9A] transition-colors">
-                            <i class="fas fa-lock"></i>
-                        </span>
-                        <input type="password" id="loginPass" class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1A4A9A] focus:border-[#1A4A9A] focus:outline-none text-sm transition-all" placeholder="••••••••">
-                    </div>
-                </div>
-                <button type="submit" id="btn-login-submit" class="w-full bg-[#1A4A9A] hover:bg-[#153e85] text-white font-bold py-3 rounded-lg transition-all transform active:scale-95 shadow-lg shadow-blue-900/20 text-sm flex justify-center items-center gap-2">
-                    <span>LOG MASUK</span>
-                    <i class="fas fa-arrow-right"></i>
-                </button>
-                <div id="login-error" class="bg-red-50 border border-red-100 text-red-600 text-xs text-center mt-4 py-2 rounded-lg hidden flex items-center justify-center gap-2">
-                    <i class="fas fa-exclamation-circle"></i> <span id="login-error-text">ID atau Kata Laluan tidak sah.</span>
-                </div>
-            </form>
+<!-- ══════════════════════════════════ TOAST ══════════════════════════════════ -->
+<div id="toasts" class="fixed bottom-5 right-5 z-[9999] flex flex-col gap-3 pointer-events-none"></div>
 
-            <div class="mt-6 pt-6 border-t border-gray-100 text-center">
-                <p class="text-[10px] text-gray-400">© 2026 Pejabat ADUN Karambunai</p>
-            </div>
+<!-- ═══════════════════════════ SKRIN 1: SETUP URL ════════════════════════════ -->
+<div id="screen-setup" class="fixed inset-0 z-[9000] hidden items-center justify-center p-4 bg-gradient-to-br from-slate-100 via-white to-blue-50">
+  <div class="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden fade-in">
+    <div class="h-1.5 bg-gradient-to-r from-brand to-brand2"></div>
+    <div class="p-8">
+      <div class="flex items-center gap-4 mb-6">
+        <img src="https://i.postimg.cc/MptXDDPS/karadi.png" alt="KARA-Di" class="h-14">
+        <div>
+          <h1 class="text-lg font-extrabold text-navy leading-tight">Sambungan Pangkalan Data</h1>
+          <p class="text-xs text-slate-500">Dashboard Admin KARA-Di</p>
         </div>
+      </div>
+
+      <p class="text-sm text-slate-600 mb-4 leading-relaxed">
+        Masukkan URL Web App Apps Script (berakhir dengan <code class="bg-slate-100 px-1.5 py-0.5 rounded text-xs">/exec</code>).
+        Dashboard ini <strong>hanya papar data sebenar</strong> — tiada data contoh langsung.
+      </p>
+
+      <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">URL Apps Script (Macro)</label>
+      <input id="setup-url" type="url" placeholder="https://script.google.com/macros/s/.../exec"
+             class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-brand outline-none transition mb-4">
+
+      <div id="setup-msg" class="hidden mb-4 text-xs rounded-xl px-4 py-3 border"></div>
+
+      <button onclick="App.testAndSaveUrl()" id="setup-btn"
+              class="w-full bg-brand hover:bg-navy text-white font-bold py-3 rounded-xl transition shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 text-sm">
+        <i class="fa-solid fa-plug-circle-check"></i> Uji &amp; Simpan Sambungan
+      </button>
+
+      <p class="text-[11px] text-slate-400 mt-4 text-center">
+        URL disimpan dalam pelayar ini sahaja. Tekan <em>Tetapan</em> dalam dashboard untuk tukar bila-bila masa.
+      </p>
     </div>
-    <!-- Toast Container -->
-    <div id="toast-container" class="fixed bottom-5 right-5 z-[60] flex flex-col gap-3 pointer-events-none"></div>
-    <!-- Loading Screen -->
-    <div id="loading-overlay" class="z-[9999]" style="display:none;">
-        <div class="spinner mb-4"></div>
-        <h2 class="text-lg font-bold text-[#1A4A9A]">Sistem Aduan Rakyat Karambunai</h2>
-        <p class="text-gray-500 text-xs mt-2 uppercase tracking-wide">Sedang Memuatkan Data...</p>
-        <p id="loading-status" class="text-gray-400 text-[10px] mt-2">Menghubungkan ke Pangkalan Data...</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ SKRIN 2: LOG MASUK ════════════════════════════ -->
+<div id="screen-login" class="fixed inset-0 z-[8000] hidden items-center justify-center p-4 bg-gradient-to-br from-slate-100 via-white to-blue-50">
+  <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-slate-200 overflow-hidden fade-in">
+    <div class="h-1.5 bg-gradient-to-r from-brand to-brand2"></div>
+    <div class="p-8">
+      <div class="text-center mb-7">
+        <img src="https://i.postimg.cc/MptXDDPS/karadi.png" alt="KARA-Di" class="h-16 mx-auto mb-3">
+        <h1 class="text-lg font-extrabold text-navy">Log Masuk Admin</h1>
+        <p class="text-xs text-slate-500 mt-1">Sistem KARA-Di · Karambunai N16</p>
+      </div>
+
+      <form onsubmit="event.preventDefault(); App.login();">
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Emel</label>
+        <div class="relative mb-4">
+          <i class="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+          <input id="login-email" type="email" autocomplete="username" placeholder="emel admin"
+                 class="w-full pl-11 pr-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-brand outline-none transition">
+        </div>
+
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Kata Laluan</label>
+        <div class="relative mb-6">
+          <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+          <input id="login-pass" type="password" autocomplete="current-password" placeholder="••••••••"
+                 class="w-full pl-11 pr-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-brand outline-none transition">
+        </div>
+
+        <button type="submit" id="login-btn"
+                class="w-full bg-brand hover:bg-navy text-white font-bold py-3 rounded-xl transition shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 text-sm">
+          <span>LOG MASUK</span><i class="fa-solid fa-arrow-right"></i>
+        </button>
+
+        <div id="login-msg" class="hidden mt-4 text-xs rounded-xl px-4 py-3 border bg-red-50 border-red-200 text-red-700"></div>
+      </form>
+
+      <button onclick="App.openSetup()" class="w-full text-center text-[11px] text-slate-400 hover:text-brand mt-6 transition">
+        <i class="fa-solid fa-gear"></i> Tukar URL Apps Script
+      </button>
     </div>
-    <!-- Mobile Backdrop -->
-    <div id="sidebar-backdrop" onclick="UI.toggleSidebar()" class="fixed inset-0 z-20 bg-black bg-opacity-50 hidden transition-opacity lg:hidden"></div>
-    <!-- -->
-    <!-- Sidebar -->
-    <aside id="sidebar" class="fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 shadow-xl flex flex-col transition-all duration-300 transform -translate-x-full lg:translate-x-0 lg:static lg:inset-auto lg:shadow-sm whitespace-nowrap overflow-x-hidden">
-        <div class="p-6 flex items-center justify-between border-b border-gray-100">
-            <div class="flex justify-center w-full">
-                <div class="flex items-center gap-2">
-                    <img src="https://i.postimg.cc/MptXDDPS/karadi.png" onerror="this.style.display='none'; this.nextElementSibling.style.display='block'" alt="Logo Karambunai" class="h-14 opacity-90 hover:opacity-100 transition-opacity">
-                    <span style="display:none" class="text-xl font-bold text-primary">KARAMBUNAI</span>
-                </div>
-            </div>
-            <!-- Close Button for Mobile -->
-            <button onclick="UI.toggleSidebar()" class="lg:hidden text-gray-500 hover:text-red-500 absolute right-4">
-                <i class="fas fa-times fa-lg"></i>
-            </button>
-        </div>
-        <nav class="flex-1 overflow-y-auto py-5 px-3 space-y-1.5">
-            <button onclick="UI.switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg text-gray-600 transition-all duration-200 active">
-                <i class="fas fa-chart-pie w-6"></i> Dashboard Utama
-            </button>
+  </div>
+</div>
 
-            <div class="pt-5 pb-2 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pangkalan Data</div>
+<!-- ══════════════════════════ SKRIN 3: LOADING ═══════════════════════════════ -->
+<div id="screen-loading" class="fixed inset-0 z-[7000] hidden flex-col items-center justify-center bg-white/95">
+  <div class="spinner mb-5"></div>
+  <p class="text-sm font-bold text-navy">Memuatkan data sebenar…</p>
+  <p id="loading-note" class="text-[11px] text-slate-400 mt-1.5">Menghubungi Apps Script</p>
+</div>
 
-            <button onclick="UI.switchTab('all')" id="nav-all" class="nav-item w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-lg text-gray-600 transition-all duration-200">
-                <i class="fas fa-layer-group w-6"></i> Semua Rekod
-            </button>
+<!-- ═══════════════════════════ APP (SELEPAS LOGIN) ═══════════════════════════ -->
+<div id="app" class="hidden h-screen overflow-hidden flex">
 
-            <div class="pt-4 pb-2 px-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Kategori</div>
+  <!-- Sidebar backdrop (mobile) -->
+  <div id="backdrop" onclick="App.toggleSidebar()" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden"></div>
 
-            <button onclick="UI.switchTab(0)" id="nav-0" class="nav-item w-full flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 transition-all duration-200">
-                <i class="fas fa-envelope-open-text w-6"></i> Jemputan Rasmi
-            </button>
-            <button onclick="UI.switchTab(1)" id="nav-1" class="nav-item w-full flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 transition-all duration-200">
-                <i class="fas fa-hand-holding-heart w-6"></i> Mohon Bantuan
-            </button>
-            <button onclick="UI.switchTab(2)" id="nav-2" class="nav-item w-full flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 transition-all duration-200">
-                <i class="fas fa-bullhorn w-6"></i> Aduan Rakyat
-            </button>
-            <button onclick="UI.switchTab(3)" id="nav-3" class="nav-item w-full flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 transition-all duration-200">
-                <i class="fas fa-calendar-check w-6"></i> Temujanji
-            </button>
-            <button onclick="UI.switchTab(4)" id="nav-4" class="nav-item w-full flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 transition-all duration-200">
-                <i class="fas fa-lightbulb w-6"></i> Idea / Cadangan
-            </button>
-            <button onclick="UI.switchTab(5)" id="nav-5" class="nav-item w-full flex items-center px-4 py-2 text-sm font-medium rounded-lg text-gray-600 transition-all duration-200">
-                <i class="fas fa-users w-6"></i> Sukarelawan
-            </button>
-        </nav>
-        <div class="p-4 border-t border-gray-100 bg-gray-50 space-y-2">
-            <!-- BAHARU: butang log keluar (sesi admin sekarang sesi Firebase sebenar) -->
-            <button onclick="UI.handleLogout()" class="w-full bg-white border border-red-200 hover:bg-red-50 text-red-600 py-2 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide">
-                <i class="fas fa-power-off"></i> Log Keluar
-            </button>
-            <button class="w-full bg-[#1A4A9A] hover:bg-[#153e85] text-white py-2 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wide">
-                <i class="fas fa-robot"></i> Powered By JIBRIL
-            </button>
-        </div>
-    </aside>
-    <!-- -->
-    <!-- Main Content -->
-    <main class="flex-1 flex flex-col h-screen overflow-hidden bg-[#F5F6F8]">
-        <!-- Header -->
-        <header class="bg-white border-b border-gray-200 p-4 flex justify-between items-center z-10 sticky top-0 shadow-sm">
-            <div class="flex items-center gap-3">
-                <button onclick="UI.toggleSidebar()" class="text-gray-600 hover:text-primary focus:outline-none p-2 rounded hover:bg-gray-100 transition">
-                    <i class="fas fa-bars fa-lg"></i>
-                </button>
-                <div>
-                    <h1 class="text-lg font-bold text-[#1A4A9A]" id="page-title">Dashboard Keseluruhan</h1>
-                    <p class="text-xs text-gray-500 hidden sm:block">Pemantauan & Pengurusan Data Terpusat</p>
-                </div>
-            </div>
-            <div class="flex gap-2">
-                <button onclick="UI.refreshData()" class="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-[#1A4A9A] px-3 py-2 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 shadow-sm transition-colors duration-200">
-                    <i class="fas fa-sync-alt" id="refresh-icon"></i> <span class="hidden sm:inline">Muat Semula</span>
-                </button>
-                <button onclick="UI.generateReport()" class="bg-white border border-[#1A4A9A] text-[#1A4A9A] hover:bg-[#1A4A9A] hover:text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 shadow-sm transition-colors duration-200">
-                    <i class="fas fa-file-pdf"></i> <span class="hidden sm:inline">Laporan PDF</span>
-                </button>
-            </div>
-        </header>
-        <!-- Content Area -->
-        <div class="flex-1 overflow-auto p-4 md:p-8 scroll-smooth" id="main-content">
-
-            <!-- Dashboard View -->
-            <div id="view-dashboard" class="space-y-6">
-                <!-- Dashboard Filters -->
-                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-wrap items-center gap-3">
-                    <div class="text-xs font-bold text-gray-500 uppercase tracking-wide flex items-center gap-2">
-                        <i class="fas fa-filter"></i> Penapis Tarikh:
-                    </div>
-                    <div class="flex items-center gap-2 bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 shadow-sm">
-                        <input type="date" id="dashDateStart" onchange="UI.renderDashboard()" class="text-sm bg-transparent border-none focus:ring-0 text-gray-700 outline-none h-6">
-                        <span class="text-gray-400 text-xs"><i class="fas fa-arrow-right"></i></span>
-                        <input type="date" id="dashDateEnd" onchange="UI.renderDashboard()" class="text-sm bg-transparent border-none focus:ring-0 text-gray-700 outline-none h-6">
-                    </div>
-                    <button onclick="UI.resetDashFilters()" class="text-xs text-red-500 hover:text-red-700 font-medium px-3 py-1.5 border border-red-100 hover:bg-red-50 rounded-lg transition-colors">
-                        <i class="fas fa-undo"></i> Reset
-                    </button>
-                </div>
-                <!-- Stats Cards -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200 flex items-center justify-between hover:shadow-md transition-shadow">
-                        <div>
-                            <p class="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">Jumlah Rekod</p>
-                            <h3 class="text-3xl font-bold text-gray-900" id="stat-total">0</h3>
-                        </div>
-                        <div class="bg-gray-100 p-3 rounded-md text-gray-600 border border-gray-200"><i class="fas fa-database fa-lg"></i></div>
-                    </div>
-
-                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200 flex items-center justify-between hover:shadow-md transition-shadow">
-                        <div>
-                            <p class="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">Telah Selesai</p>
-                            <h3 class="text-3xl font-bold text-emerald-600" id="stat-solved">0</h3>
-                        </div>
-                        <div class="bg-emerald-50 p-3 rounded-md text-emerald-600 border border-emerald-100"><i class="fas fa-check-circle fa-lg"></i></div>
-                    </div>
-
-                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200 flex items-center justify-between hover:shadow-md transition-shadow">
-                        <div>
-                            <p class="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">Sedang Di Proses</p>
-                            <h3 class="text-3xl font-bold text-amber-500" id="stat-process">0</h3>
-                        </div>
-                        <div class="bg-amber-50 p-3 rounded-md text-amber-500 border border-amber-100"><i class="fas fa-clock fa-lg"></i></div>
-                    </div>
-
-                    <div class="bg-white p-5 rounded-lg shadow-sm border border-gray-200 flex items-center justify-between hover:shadow-md transition-shadow">
-                        <div>
-                            <p class="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">Dalam Semakan</p>
-                            <h3 class="text-3xl font-bold text-[#1A4A9A]" id="stat-semakan">0</h3>
-                        </div>
-                        <div class="bg-blue-50 p-3 rounded-md text-[#1A4A9A] border border-blue-100"><i class="fas fa-file-import fa-lg"></i></div>
-                    </div>
-                </div>
-                <!-- Charts Area -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 lg:col-span-2">
-                        <div class="flex items-center justify-between mb-6">
-                            <h3 class="font-bold text-gray-800 text-sm uppercase tracking-wide">Statistik Mengikut Kategori (Perbandingan)</h3>
-                            <button class="text-gray-400 hover:text-[#1A4A9A]"><i class="fas fa-ellipsis-h"></i></button>
-                        </div>
-                        <div class="h-64">
-                            <canvas id="categoryChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                         <div class="flex items-center justify-between mb-6">
-                            <h3 class="font-bold text-gray-800 text-sm uppercase tracking-wide">Status Keseluruhan</h3>
-                        </div>
-                        <div class="h-64 flex justify-center">
-                            <canvas id="statusChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <!-- -->
-            <!-- Data Table View (Hidden by default) -->
-            <div id="view-table" class="hidden space-y-4">
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full">
-                    <!-- Filters Toolbar -->
-                    <div class="p-4 border-b border-gray-100 bg-gray-50 flex flex-col gap-4">
-                        <div class="flex flex-col xl:flex-row justify-between items-center gap-3">
-                            <div class="relative w-full xl:w-1/4">
-                                <input type="text" id="searchInput" onkeyup="UI.filterTable()" placeholder="Cari Nama, Rujukan..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1A4A9A] text-sm bg-white shadow-sm transition-all">
-                                <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
-                            </div>
-                            <div class="flex flex-wrap items-center gap-2 w-full xl:w-auto justify-end">
-
-                                <div class="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-2 py-1 shadow-sm">
-                                    <span class="text-xs text-gray-500 font-semibold uppercase">Status:</span>
-                                    <select id="statusFilter" onchange="UI.filterTable()" class="text-sm border-none focus:ring-0 text-gray-600 outline-none h-8 bg-transparent">
-                                        <option value="">Semua</option>
-                                        <option value="DALAM SEMAKAN">Dalam Semakan</option>
-                                        <option value="SEDANG DI PROSES">Sedang Di Proses</option>
-                                        <option value="TELAH SELESAI">Telah Selesai</option>
-                                    </select>
-                                </div>
-                                <div class="flex items-center gap-2 bg-white border border-gray-300 rounded-lg px-2 py-1 shadow-sm">
-                                    <span class="text-xs text-gray-500 font-semibold uppercase">Tarikh:</span>
-                                    <input type="date" id="dateStart" onchange="UI.filterTable()" class="text-sm border-none focus:ring-0 text-gray-600 outline-none h-8">
-                                    <span class="text-gray-400">-</span>
-                                    <input type="date" id="dateEnd" onchange="UI.filterTable()" class="text-sm border-none focus:ring-0 text-gray-600 outline-none h-8">
-                                </div>
-                                <button onclick="UI.resetFilters()" class="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 underline">
-                                    Reset
-                                </button>
-
-                                <div class="h-6 w-px bg-gray-300 mx-1"></div>
-                                <div class="relative">
-                                    <button onclick="UI.toggleColumnMenu()" class="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-colors">
-                                        <i class="fas fa-columns"></i> Pilih Lajur
-                                    </button>
-
-                                    <div id="columnMenuDropdown" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 z-50 p-2">
-                                        <div class="text-xs font-bold text-gray-500 uppercase tracking-wide px-2 py-1 border-b mb-2">Paparan Lajur</div>
-                                        <div id="columnCheckboxes" class="space-y-1 max-h-60 overflow-y-auto">
-                                            <!-- Checkboxes generated by JS -->
-                                        </div>
-                                    </div>
-                                </div>
-                                <button onclick="UI.downloadExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition-colors">
-                                    <i class="fas fa-file-excel"></i> Muat Turun Data
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="table-container border-0 rounded-none">
-                        <table class="w-full text-left border-collapse">
-                            <thead class="bg-gray-100 text-gray-600 text-xs uppercase font-bold tracking-wider border-b border-gray-200">
-                                <tr id="tableHeaderRow">
-                                    <!-- Headers generated by JS -->
-                                </tr>
-                            </thead>
-                            <tbody id="dataTableBody" class="text-sm text-gray-700 divide-y divide-gray-100 bg-white">
-                                <!-- Data will be injected here -->
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="p-3 border-t border-gray-200 text-xs text-gray-500 bg-gray-50 flex justify-between items-center rounded-b-lg">
-                        <span id="showing-text">Menunjukkan 0 rekod</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-    <!-- -->
-    <!-- PDF Preview Modal -->
-    <div id="pdf-preview-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-gray-100 rounded-lg shadow-2xl z-10 w-full max-w-5xl h-[95vh] flex flex-col border border-gray-200">
-            <div class="bg-white p-4 border-b border-gray-200 flex justify-between items-center rounded-t-lg">
-                <div class="flex items-center gap-3">
-                    <div class="bg-blue-50 p-2 rounded text-[#1A4A9A]"><i class="fas fa-print"></i></div>
-                    <h3 class="font-bold text-lg text-gray-800">Pratonton Dokumen</h3>
-                </div>
-                <button onclick="UI.closeModal('pdf-preview-modal')" class="text-gray-400 hover:text-red-500 transition-colors"><i class="fas fa-times fa-lg"></i></button>
-            </div>
-
-            <div class="flex-1 overflow-auto p-4 sm:p-8 bg-gray-200 flex flex-col items-center gap-8">
-                 <div id="pdf-container"></div>
-            </div>
-            <div class="bg-white p-4 border-t border-gray-200 flex justify-end gap-3 rounded-b-lg">
-                <button onclick="UI.closeModal('pdf-preview-modal')" class="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg font-medium text-sm transition-colors">Batal</button>
-                <button onclick="UI.confirmDownloadPDF()" class="px-6 py-2.5 bg-[#1A4A9A] hover:bg-[#153e85] text-white rounded-lg shadow-sm flex items-center gap-2 font-medium text-sm transition-colors">
-                    <i class="fas fa-download"></i> Simpan sebagai PDF
-                </button>
-            </div>
-        </div>
+  <!-- ─────────────── SIDEBAR ─────────────── -->
+  <aside id="sidebar" class="fixed lg:static inset-y-0 left-0 z-40 w-[270px] shrink-0 bg-navy flex flex-col
+                             -translate-x-full lg:translate-x-0 transition-transform duration-300">
+    <div class="px-6 py-6 border-b border-white/10 flex items-center gap-3">
+      <img src="https://i.postimg.cc/MptXDDPS/karadi.png" alt="KARA-Di" class="h-11">
+      <div class="min-w-0">
+        <p class="text-white font-extrabold text-sm leading-tight">KARA-Di</p>
+        <p class="text-slate-400 text-[10px] uppercase tracking-widest">Dashboard Admin</p>
+      </div>
+      <button onclick="App.toggleSidebar()" class="lg:hidden ml-auto text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
     </div>
-    <!-- Edit Status Modal -->
-    <div id="edit-status-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-lg shadow-xl z-10 w-full max-w-md p-6 border border-gray-200 overflow-y-auto max-h-[90vh]">
-            <div class="flex justify-between items-center mb-4 border-b pb-2">
-                <h3 class="font-bold text-lg text-[#1A4A9A]">Sunting Status Aduan</h3>
-                <button onclick="UI.closeModal('edit-status-modal')" class="text-gray-400 hover:text-red-500"><i class="fas fa-times"></i></button>
-            </div>
 
-            <form id="editStatusForm" onsubmit="event.preventDefault(); UI.updateStatus();">
-                <input type="hidden" id="edit-ref-no">
-                <input type="hidden" id="edit-tab-id">
+    <nav class="flex-1 overflow-y-auto px-3 py-5 space-y-1">
+      <button onclick="App.go('dashboard')" data-nav="dashboard" class="side-link w-full active"><i class="fa-solid fa-chart-pie"></i> Dashboard</button>
 
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">No. Rujukan</label>
-                    <input type="text" id="display-ref-no" class="w-full bg-gray-100 border border-gray-300 rounded px-3 py-2 text-sm text-gray-500" disabled>
-                </div>
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Status Terkini</label>
-                    <select id="new-status" onchange="UI.handleStatusChange()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#1A4A9A] focus:outline-none">
-                        <option value="DALAM SEMAKAN">DALAM SEMAKAN</option>
-                        <option value="SEDANG DI PROSES">SEDANG DI PROSES</option>
-                        <option value="TELAH SELESAI">TELAH SELESAI</option>
-                    </select>
-                </div>
-                <!-- Completion Options -->
-                <div id="completion-options" class="hidden mt-4 border-t border-gray-100 pt-4 bg-gray-50 p-4 rounded-lg">
-                    <label id="completion-label" class="block text-sm font-bold text-[#1A4A9A] mb-3">Pilihan Laporan Penyelesaian:</label>
-                    <div class="flex gap-4 mb-4">
-                        <label class="flex items-center gap-2 text-sm cursor-pointer bg-white px-3 py-2 rounded border border-gray-200 hover:border-[#1A4A9A] transition-colors w-1/2">
-                            <input type="radio" name="report_type" value="upload" checked onclick="UI.toggleReportType()" class="text-[#1A4A9A] focus:ring-[#1A4A9A]">
-                            <span>Muat Naik Laporan</span>
-                        </label>
-                        <label class="flex items-center gap-2 text-sm cursor-pointer bg-white px-3 py-2 rounded border border-gray-200 hover:border-[#1A4A9A] transition-colors w-1/2">
-                            <input type="radio" name="report_type" value="build" onclick="UI.toggleReportType()" class="text-[#1A4A9A] focus:ring-[#1A4A9A]">
-                            <span>Bina Laporan Baru</span>
-                        </label>
-                    </div>
-                    <!-- Option A: Upload -->
-                    <div id="type-upload" class="space-y-3 animate-fade-in">
-                         <label class="block text-xs font-semibold text-gray-600">Muat naik fail laporan (PDF/Gambar)</label>
-                         <input type="file" id="upload-file-input" class="w-full text-sm border border-gray-300 rounded p-2 bg-white">
-                         <p class="text-[10px] text-gray-500">*Fail akan dimuat naik sebagai laporan tindakan rasmi.</p>
-                    </div>
-                    <!-- Option B: Build -->
-                    <div id="type-build" class="hidden space-y-3 animate-fade-in">
-                         <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">Ringkasan Tindakan/Penyelesaian</label>
-                            <textarea id="build-summary" rows="3" class="w-full text-sm border border-gray-300 rounded p-2 focus:ring-1 focus:ring-[#1A4A9A] focus:outline-none" placeholder="Jelaskan tindakan yang telah diambil secara ringkas..."></textarea>
-                         </div>
-                         <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">Bukti Gambar (Maksimum 3)</label>
-                            <input type="file" id="build-images" multiple accept="image/*" class="w-full text-sm border border-gray-300 rounded p-2 bg-white">
-                         </div>
-                    </div>
-                </div>
-                <div class="flex justify-end gap-3 mt-4">
-                    <button type="button" onclick="UI.closeModal('edit-status-modal')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium">Batal</button>
-                    <button type="submit" id="btn-save-status" class="px-4 py-2 bg-[#1A4A9A] hover:bg-[#153e85] text-white rounded-lg text-sm font-medium shadow-sm flex items-center gap-2">
-                        <i class="fas fa-save"></i> Simpan Perubahan
-                    </button>
-                </div>
-            </form>
-        </div>
+      <p class="px-4 pt-5 pb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">Pangkalan Data</p>
+      <button onclick="App.go('all')" data-nav="all" class="side-link w-full"><i class="fa-solid fa-layer-group"></i> Semua Rekod</button>
+
+      <p class="px-4 pt-5 pb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">Kategori</p>
+      <div id="nav-categories" class="space-y-1"></div>
+    </nav>
+
+    <div class="p-4 border-t border-white/10 space-y-2">
+      <button onclick="App.openSetup()" class="side-link w-full"><i class="fa-solid fa-gear"></i> Tetapan Sambungan</button>
+      <button onclick="App.logout()" class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500 hover:text-white transition text-xs font-bold uppercase tracking-wide">
+        <i class="fa-solid fa-power-off"></i> Log Keluar
+      </button>
     </div>
-    <!-- -->
-    <!-- Script Logic -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        // BAHARU: signInAnonymously dibuang. Guna signInWithEmailAndPassword sebenar
-        // (sama akaun admin macam index.html awam) + onAuthStateChanged + signOut.
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        window.UI = {};
+  </aside>
 
-        // --- BAHARU: XSS-safe render helper (sama pattern macam index.html awam) ---
-        function escapeHtml(str) {
-            const div = document.createElement('div');
-            div.textContent = (str === null || str === undefined) ? '' : String(str);
-            return div.innerHTML;
-        }
-        window.UI.showToast = function(message, type = 'success') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
+  <!-- ─────────────── MAIN ─────────────── -->
+  <main class="flex-1 flex flex-col min-w-0">
 
-            let iconClass = 'fa-check-circle';
-            let bgClass = 'bg-emerald-600';
+    <header class="bg-white border-b border-slate-200 px-4 md:px-7 py-4 flex items-center justify-between gap-4 shrink-0">
+      <div class="flex items-center gap-3 min-w-0">
+        <button onclick="App.toggleSidebar()" class="lg:hidden text-slate-500 hover:text-brand p-2 -ml-2"><i class="fa-solid fa-bars text-lg"></i></button>
+        <div class="min-w-0">
+          <h1 id="page-title" class="text-base md:text-lg font-extrabold text-navy truncate">Dashboard</h1>
+          <p id="page-sub" class="text-[11px] text-slate-500 truncate">Pemantauan &amp; pengurusan data terpusat</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="App.refresh()" class="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:border-brand hover:text-brand text-slate-700 text-xs font-semibold flex items-center gap-2 transition">
+          <i id="refresh-ico" class="fa-solid fa-rotate"></i><span class="hidden sm:inline">Muat Semula</span>
+        </button>
+        <button onclick="App.buildReport()" class="px-3 py-2 rounded-xl bg-brand hover:bg-navy text-white text-xs font-semibold flex items-center gap-2 transition shadow-sm">
+          <i class="fa-solid fa-file-pdf"></i><span class="hidden sm:inline">Laporan PDF</span>
+        </button>
+      </div>
+    </header>
 
-            if (type === 'error') {
-                iconClass = 'fa-exclamation-circle';
-                bgClass = 'bg-red-600';
-            } else if (type === 'info') {
-                iconClass = 'fa-info-circle';
-                bgClass = 'bg-blue-600';
-            }
-            toast.className = `toast pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-white ${bgClass}`;
-            toast.innerHTML = `<i class="fas ${iconClass} text-lg"></i><span class="text-sm font-medium">${escapeHtml(message)}</span>`;
-            container.appendChild(toast);
-            requestAnimationFrame(() => toast.classList.add('show'));
-            setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
-        };
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "AIzaSyAH_P1CHHVBIXRGE0zkElJVyMO2LRbb93Y",
-            authDomain: "kara-di.firebaseapp.com",
-            projectId: "kara-di",
-            storageBucket: "kara-di.firebasestorage.app",
-            messagingSenderId: "9136488162",
-            appId: "1:9136488162:web:a8b1a9eea524086d75e8bb"
-        };
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxX4qrav3fWH91bIkMZmF78AMRpYhXGgM0CkADR2VRrL2YxneIE2IzR6NA0aNmfwO1l/exec";
-        // BAHARU: ADMIN_EMAIL — satu-satunya akaun yang dibenarkan masuk dashboard ni.
-        const ADMIN_EMAIL = "pusatkhidmatn16karambunai@gmail.com";
-        // BAHARU: SHEET_BASE_URL (public CSV) dibuang — data admin kini datang dari
-        // Apps Script action get_admin_data (authenticated), bukan Sheet published-to-web.
+    <!-- Banner status sambungan (kekal, bukan toast) -->
+    <div id="conn-banner" class="hidden mx-4 md:mx-7 mt-4 rounded-xl border px-4 py-3 text-xs"></div>
 
-        const TABS = [
-            { id: 0, name: "Jemputan Rasmi", gid: "467127359", icon: "fa-envelope-open-text" },
-            { id: 1, name: "Mohon Bantuan", gid: "296654056", icon: "fa-hand-holding-heart" },
-            { id: 2, name: "Aduan Rakyat", gid: "1279452908", icon: "fa-bullhorn" },
-            { id: 3, name: "Temujanji", gid: "109622860", icon: "fa-calendar-check" },
-            { id: 4, name: "Idea / Cadangan", gid: "915405611", icon: "fa-lightbulb" },
-            { id: 5, name: "Sukarelawan", gid: "1646016019", icon: "fa-users" }
-        ];
-        // Definisi lajur dipadamkan "ic" / "No KP" sepenuhnya
-        const COLUMN_DEFS = [
-            { key: 'date', label: 'Tarikh' },
-            { key: 'category', label: 'Kategori' },
-            { key: 'ref', label: 'No. Rujukan' },
-            { key: 'name', label: 'Nama Pemohon' },
-            { key: 'address', label: 'Alamat' },
-            { key: 'phone', label: 'No. Telefon' },
-            { key: 'details', label: 'Perincian' },
-            { key: 'attachment', label: 'Lampiran' },
-            { key: 'status', label: 'Status' },
-            { key: 'action', label: 'Tindakan' },
-            { key: 'date_completed', label: 'Tarikh Selesai' },
-            { key: 'report_link', label: 'Laporan Selesai' }
-        ];
-        let appData = {
-            allRecords: [],
-            byTab: {},
-            currentFilteredData: [],
-            currentTab: 'dashboard',
-            usersMap: {},
-            visibleColumns: COLUMN_DEFS.reduce((acc, col) => ({...acc, [col.key]: true}), {})
-        };
-        // --- Mock Data Generator (Fallback, kekal sama seperti asal) ---
-        function generateMockData() {
-            const statuses = ['DALAM SEMAKAN', 'SEDANG DI PROSES', 'TELAH SELESAI'];
-            const mockRows = [];
+    <div class="flex-1 overflow-y-auto p-4 md:p-7">
 
-            TABS.forEach(tab => {
-                const count = 10 + Math.floor(Math.random() * 20);
-                const tabData = [];
-                for (let i = 0; i < count; i++) {
-                    const date = new Date();
-                    date.setDate(date.getDate() - Math.floor(Math.random() * 60));
-                    const row = {
-                        'Timestamp': date.toLocaleDateString('en-GB'),
-                        'No. Rujukan': `REF-${tab.id}-${1000+i}`,
-                        'Nama Penuh': `Penduduk ${tab.name} ${i+1}`,
-                        'No. Telefon': `01${Math.floor(Math.random()*9)}-${Math.floor(1000000 + Math.random()*9000000)}`,
-                        'Alamat': `No ${i+1}, Jalan Merdeka, Karambunai`,
-                        'Perincian 1': `Ini adalah contoh butiran bagi ${tab.name}.`,
-                        'Lampiran': '',
-                        'STATUS': statuses[Math.floor(Math.random() * statuses.length)],
-                        '_categoryId': tab.id,
-                        '_categoryName': tab.name,
-                        'UID': `mock-uid-${i}`,
-                        'Tarikh Selesai': '',
-                        'Laporan Penyelesaian': ''
-                    };
-                    tabData.push(row);
-                    mockRows.push(row);
-                }
-                appData.byTab[tab.id] = tabData;
-            });
+      <!-- ══════════ VIEW: DASHBOARD ══════════ -->
+      <section id="view-dashboard" class="space-y-5">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-wrap items-center gap-3">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2"><i class="fa-solid fa-filter"></i> Julat Tarikh</span>
+          <input type="date" id="dash-from" onchange="App.renderDashboard()" class="px-3 py-2 rounded-lg border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-brand">
+          <span class="text-slate-400 text-xs">hingga</span>
+          <input type="date" id="dash-to" onchange="App.renderDashboard()" class="px-3 py-2 rounded-lg border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-brand">
+          <button onclick="App.resetDashFilter()" class="text-[11px] font-semibold text-red-500 hover:text-red-700 px-3 py-2 rounded-lg border border-red-100 hover:bg-red-50 transition">Reset</button>
+        </div>
 
-            appData.allRecords = mockRows;
-        }
-        // =====================================================================
-        // BAHARU: AUTH FLOW SEBENAR
-        // Data TIDAK dimuatkan sehingga Firebase mengesahkan sesi admin sebenar.
-        // Dulu: overlay login cuma div CSS di atas dashboard yang DAH TERMUAT
-        // sepenuhnya di background sejak DOMContentLoaded — buang overlay tu (devtools)
-        // terus nampak semua data tanpa perlu tahu password langsung. Sekarang:
-        // fetch data admin hanya start LEPAS onAuthStateChanged sahkan email admin.
-        // =====================================================================
-        window.UI.handleLogin = async function() {
-            const id = document.getElementById('loginId').value;
-            const pass = document.getElementById('loginPass').value;
-            const errorMsg = document.getElementById('login-error');
-            const errorText = document.getElementById('login-error-text');
-            const btn = document.getElementById('btn-login-submit');
-            errorMsg.classList.add('hidden');
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Jumlah Rekod</p>
+            <div class="flex items-end justify-between">
+              <h3 id="stat-total" class="text-3xl font-extrabold text-ink">0</h3>
+              <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 grid place-items-center"><i class="fa-solid fa-database"></i></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Telah Selesai</p>
+            <div class="flex items-end justify-between">
+              <h3 id="stat-selesai" class="text-3xl font-extrabold text-emerald-600">0</h3>
+              <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 grid place-items-center"><i class="fa-solid fa-circle-check"></i></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Sedang Diproses</p>
+            <div class="flex items-end justify-between">
+              <h3 id="stat-proses" class="text-3xl font-extrabold text-amber-500">0</h3>
+              <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 grid place-items-center"><i class="fa-solid fa-clock"></i></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Dalam Semakan</p>
+            <div class="flex items-end justify-between">
+              <h3 id="stat-semakan" class="text-3xl font-extrabold text-brand">0</h3>
+              <div class="w-10 h-10 rounded-xl bg-blue-50 text-brand grid place-items-center"><i class="fa-solid fa-file-import"></i></div>
+            </div>
+          </div>
+        </div>
 
-            if (!id || !pass) {
-                errorText.innerText = "Sila isi emel dan kata laluan.";
-                errorMsg.classList.remove('hidden');
-                return;
-            }
-            btn.disabled = true;
-            const originalHtml = btn.innerHTML;
-            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Sedang log masuk...`;
-            try {
-                const cred = await signInWithEmailAndPassword(auth, id, pass);
-                if (String(cred.user.email).toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
-                    await signOut(auth);
-                    errorText.innerText = "Akaun ini tiada akses admin.";
-                    errorMsg.classList.remove('hidden');
-                    return;
-                }
-                // onAuthStateChanged akan handle load data & sembunyi login screen
-            } catch (error) {
-                let msg = "ID atau Kata Laluan tidak sah.";
-                if (error.code === 'auth/too-many-requests') msg = "Terlalu banyak percubaan. Sila tunggu sebentar.";
-                errorText.innerText = msg;
-                errorMsg.classList.remove('hidden');
-                document.getElementById('loginPass').value = '';
-                document.getElementById('loginPass').focus();
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = originalHtml;
-            }
-        };
-        window.UI.handleLogout = async function() {
-            try { await signOut(auth); } catch(e) {}
-            // Reset UI/data supaya tiada baki data admin lama kekal di memori selepas logout
-            appData.allRecords = [];
-            appData.byTab = {};
-            appData.usersMap = {};
-            document.getElementById('login-screen').classList.remove('hidden');
-            document.getElementById('loginPass').value = '';
-        };
-        onAuthStateChanged(auth, async (user) => {
-            if (user && String(user.email).toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-                document.getElementById('login-screen').classList.add('hidden');
-                UI.showToast("Selamat Kembali, Admin!", "success");
-                await loadAllAdminData();
-            } else {
-                if (user) {
-                    // Signed in tapi bukan admin — jangan biarkan sesi ni aktif.
-                    await signOut(auth);
-                }
-                document.getElementById('login-screen').classList.remove('hidden');
-                document.getElementById('loading-overlay').style.display = 'none';
-            }
-        });
-        async function loadAllAdminData() {
-            try {
-                document.getElementById('loading-overlay').style.display = 'flex';
-                UI.initColumnPicker();
-                document.getElementById('loading-status').innerText = "Menghubungkan ke Pangkalan Data...";
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 class="text-xs font-bold uppercase tracking-widest text-slate-600 mb-5">Rekod Mengikut Kategori</h3>
+            <div class="h-72"><canvas id="chart-cat"></canvas></div>
+          </div>
+          <div class="bg-white rounded-2xl border border-slate-200 p-6">
+            <h3 class="text-xs font-bold uppercase tracking-widest text-slate-600 mb-5">Taburan Status</h3>
+            <div class="h-72"><canvas id="chart-status"></canvas></div>
+          </div>
+        </div>
+      </section>
 
-                await fetchAllSheetData();
+      <!-- ══════════ VIEW: TABLE ══════════ -->
+      <section id="view-table" class="hidden space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div class="p-4 border-b border-slate-100 bg-slate-50/60 flex flex-col xl:flex-row gap-3 xl:items-center xl:justify-between">
+            <div class="relative w-full xl:w-72">
+              <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+              <input id="f-search" onkeyup="App.renderTable()" placeholder="Cari nama, rujukan, telefon…"
+                     class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-brand focus:border-brand">
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <select id="f-status" onchange="App.renderTable()" class="px-3 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-brand bg-white">
+                <option value="">Semua Status</option>
+                <option value="DALAM SEMAKAN">Dalam Semakan</option>
+                <option value="SEDANG DI PROSES">Sedang Di Proses</option>
+                <option value="TELAH SELESAI">Telah Selesai</option>
+              </select>
+              <input type="date" id="f-from" onchange="App.renderTable()" class="px-3 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-brand">
+              <input type="date" id="f-to" onchange="App.renderTable()" class="px-3 py-2.5 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-brand">
+              <button onclick="App.resetFilters()" class="text-[11px] font-semibold text-red-500 hover:text-red-700 px-2">Reset</button>
 
-                let tempRecords = [];
-                if (appData.rawSheetData) {
-                    appData.rawSheetData.forEach(res => tempRecords.push(...res.data));
-                }
-                await fetchFirebaseUsers(tempRecords);
-                mergeData();
-                if (appData.allRecords.length === 0) {
-                    generateMockData();
-                    UI.showToast("Menggunakan data contoh (Sambungan Gagal)", "info");
-                }
-                UI.renderDashboard();
-            } catch (error) {
-                console.error("Error loading data:", error);
-                generateMockData();
-                UI.renderDashboard();
-                // BAHARU: papar mesej ralat SEBENAR (bukan generik) supaya boleh
-                // didiagnosis terus dari toast tanpa perlu buka DevTools Console.
-                // Contoh apa yang mungkin nampak & maksudnya:
-                //  - "Unauthorized..." -> idToken/email admin tak match ADMIN_EMAIL
-                //    di Apps Script (log keluar & masuk semula, atau semak
-                //    ADMIN_EMAIL sama ejaan/case di admin & Apps Script).
-                //  - "Unexpected token '<'..." atau "Unexpected token 'A'..." ->
-                //    Apps Script pulangkan HALAMAN HTML (login Google/ralat akses),
-                //    BUKAN JSON -> semak Deploy > Manage deployments > tetapan
-                //    "Who has access" MESTI "Anyone", dan "Execute as" = "Me".
-                //  - "Failed to fetch" -> URL Apps Script salah/kosong, atau tiada
-                //    sambungan internet.
-                //  - "Kategori tidak sah."/"Ralat memproses permintaan..." ->
-                //    deployment yang live BUKAN versi terkini (tak kenal action
-                //    get_admin_data) -> kena Deploy > Manage deployments > Edit >
-                //    New version > Deploy semula.
-                UI.showToast("Ralat data admin: " + (error && error.message ? error.message : "tak diketahui") + " — guna data contoh buat masa ini.", "error");
-            } finally {
-                document.getElementById('loading-overlay').style.display = 'none';
-            }
-        }
-        // Butang Muat Semula Ditekan
-        window.UI.refreshData = async function() {
-            if (!auth.currentUser) { UI.showToast("Sila log masuk semula.", "error"); return; }
-            try {
-                const icon = document.getElementById('refresh-icon');
-                if (icon) icon.classList.add('fa-spin');
+              <div class="relative">
+                <button onclick="App.toggleColMenu(event)" class="px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold flex items-center gap-2 hover:border-brand hover:text-brand transition">
+                  <i class="fa-solid fa-table-columns"></i> Lajur
+                </button>
+                <div id="col-menu" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-xl border border-slate-200 shadow-xl z-50 p-2">
+                  <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-2 py-1.5 border-b border-slate-100 mb-1.5">Paparan Lajur</p>
+                  <div id="col-list" class="space-y-0.5 max-h-64 overflow-y-auto"></div>
+                </div>
+              </div>
 
-                document.getElementById('loading-overlay').style.display = 'flex';
-                document.getElementById('loading-status').innerText = "Memuat Semula Data...";
-                await fetchAllSheetData();
-                let tempRecords = [];
-                if (appData.rawSheetData) appData.rawSheetData.forEach(res => tempRecords.push(...res.data));
-                await fetchFirebaseUsers(tempRecords);
-                mergeData();
-                if (appData.currentTab === 'dashboard') UI.renderDashboard();
-                else UI.renderTable(appData.currentTab);
-                UI.showToast("Data berjaya dikemaskini!", "success");
-            } catch (error) {
-                console.error("Ralat memuat semula data:", error);
-                UI.showToast("Ralat memuat semula data: " + (error && error.message ? error.message : "tak diketahui"), "error");
-            } finally {
-                document.getElementById('loading-overlay').style.display = 'none';
-                const icon = document.getElementById('refresh-icon');
-                if (icon) icon.classList.remove('fa-spin');
-            }
-        };
-        window.UI.toggleSidebar = function() {
-            const sidebar = document.getElementById('sidebar');
-            const backdrop = document.getElementById('sidebar-backdrop');
+              <button onclick="App.exportExcel()" class="px-3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-2 transition">
+                <i class="fa-solid fa-file-excel"></i> Excel
+              </button>
+            </div>
+          </div>
 
-            if (window.innerWidth >= 1024) {
-                if (sidebar.classList.contains('desktop-collapsed')) sidebar.classList.remove('desktop-collapsed');
-                else sidebar.classList.add('desktop-collapsed');
-            } else {
-                if (sidebar.classList.contains('-translate-x-full')) {
-                    sidebar.classList.remove('-translate-x-full');
-                    backdrop.classList.remove('hidden');
-                } else {
-                    sidebar.classList.add('-translate-x-full');
-                    backdrop.classList.add('hidden');
-                }
-            }
-        };
-        window.UI.switchTab = function(tabId) {
-            appData.currentTab = tabId;
-            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active', 'bg-[#1A4A9A]', 'text-white'));
+          <div class="overflow-x-auto max-h-[62vh]">
+            <table class="w-full text-left border-collapse data">
+              <thead class="bg-slate-100 text-slate-600 text-[10px] uppercase font-bold tracking-wider">
+                <tr id="thead-row"></tr>
+              </thead>
+              <tbody id="tbody" class="text-sm divide-y divide-slate-100 bg-white"></tbody>
+            </table>
+          </div>
 
-            if (tabId === 'dashboard') {
-                document.getElementById('nav-dashboard').classList.add('active');
-                document.getElementById('page-title').innerText = "Dashboard Keseluruhan";
-                document.getElementById('view-dashboard').classList.remove('hidden');
-                document.getElementById('view-table').classList.add('hidden');
-                UI.renderDashboard();
-            } else if (tabId === 'all') {
-                document.getElementById('nav-all').classList.add('active');
-                document.getElementById('page-title').innerText = "Semua Rekod Aduan";
-                document.getElementById('view-dashboard').classList.add('hidden');
-                document.getElementById('view-table').classList.remove('hidden');
-                UI.renderTable('all');
-            } else {
-                const tabInfo = TABS.find(t => t.id === tabId);
-                document.getElementById(`nav-${tabId}`).classList.add('active');
-                document.getElementById('page-title').innerText = `Senarai: ${tabInfo.name}`;
-                document.getElementById('view-dashboard').classList.add('hidden');
-                document.getElementById('view-table').classList.remove('hidden');
-                UI.renderTable(tabId);
-            }
-            if (window.innerWidth < 1024) {
-                const sidebar = document.getElementById('sidebar');
-                if (!sidebar.classList.contains('-translate-x-full')) window.UI.toggleSidebar();
-            }
-        };
-        window.UI.toggleColumnMenu = function() {
-            const menu = document.getElementById('columnMenuDropdown');
-            menu.classList.toggle('hidden');
-        };
-        window.addEventListener('click', function(e) {
-            const btn = document.querySelector('button[onclick="UI.toggleColumnMenu()"]');
-            const menu = document.getElementById('columnMenuDropdown');
-            if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
-                menu.classList.add('hidden');
-            }
-        });
-        window.UI.initColumnPicker = function() {
-            const container = document.getElementById('columnCheckboxes');
-            container.innerHTML = '';
-            COLUMN_DEFS.forEach(col => {
-                const isChecked = appData.visibleColumns[col.key] ? 'checked' : '';
-                const item = `
-                    <label class="flex items-center space-x-2 px-2 py-1.5 hover:bg-gray-100 rounded cursor-pointer checkbox-wrapper">
-                        <input type="checkbox" onchange="UI.toggleColumn('${col.key}')" ${isChecked} class="hidden">
-                        <div class="w-4 h-4 border border-gray-300 rounded bg-white flex items-center justify-center transition-colors">
-                            <svg class="w-3 h-3 text-white hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
-                        </div>
-                        <span class="text-sm text-gray-700">${escapeHtml(col.label)}</span>
-                    </label>`;
-                container.innerHTML += item;
-            });
-        };
-        window.UI.toggleColumn = function(key) {
-            appData.visibleColumns[key] = !appData.visibleColumns[key];
-            UI.renderTable(appData.currentTab);
-        };
-        async function fetchFirebaseUsers(records) {
-            appData.usersMap = {};
-            const uniqueUids = [...new Set(records.map(r => {
-                const cleanRow = {};
-                Object.keys(r).forEach(k => cleanRow[k.trim()] = r[k]);
-                const rawUid = cleanRow['UID'] || cleanRow['uid'] || cleanRow['Uid'] || '';
-                return String(rawUid).trim();
-            }).filter(uid => uid !== ''))];
+          <div class="px-4 py-3 border-t border-slate-200 bg-slate-50/60 text-[11px] text-slate-500 font-medium">
+            <span id="table-count">0 rekod</span>
+          </div>
+        </div>
+      </section>
 
-            const promises = uniqueUids.map(async (uid) => {
-                try {
-                    const userSnap = await getDoc(doc(db, "users", uid));
-                    if (userSnap.exists()) appData.usersMap[uid] = userSnap.data();
-                } catch (error) {
-                    console.warn(`Ralat Firebase untuk UID ${uid}:`, error);
-                }
-            });
-            await Promise.all(promises);
-        }
-        // BAHARU: fetchAllSheetData kini panggil Apps Script (action: get_admin_data)
-        // dengan idToken admin, gantikan fetch terus ke Sheet published-CSV + PapaParse.
-        // Bentuk output (appData.rawSheetData = [{id, data:[...]}]) DIKEKALKAN sama
-        // seperti asal supaya mergeData()/renderTable()/renderDashboard() tak perlu ubah.
-        async function fetchAllSheetData() {
-            if (!auth.currentUser) { appData.rawSheetData = []; return; }
-            const idToken = await auth.currentUser.getIdToken();
-            const response = await fetch(APPS_SCRIPT_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'get_admin_data', idToken: idToken })
-            });
-            const result = await response.json();
-            if (result.status !== 'success') {
-                throw new Error(result.message || 'Gagal memuatkan data admin.');
-            }
-            appData.rawSheetData = TABS.map(tab => {
-                const rows = (result.tabs && result.tabs[tab.gid]) ? result.tabs[tab.gid] : [];
-                const cleanData = rows.map(row => ({
-                    ...row, _categoryId: tab.id, _categoryName: tab.name, STATUS: normalizeStatus(row['STATUS'])
-                }));
-                return { id: tab.id, data: cleanData };
-            });
-        }
-        function mergeData() {
-            if (!appData.rawSheetData) return;
-            appData.allRecords = [];
-            appData.byTab = {};
-            appData.rawSheetData.forEach(res => {
-                const mergedRows = res.data.map(row => {
-                    const cleanRow = {};
-                    Object.keys(row).forEach(k => cleanRow[k.trim()] = row[k]);
+    </div>
+  </main>
+</div>
 
-                    const uid = String(cleanRow['UID'] || cleanRow['uid'] || cleanRow['Uid'] || '').trim();
-                    const firebaseUser = appData.usersMap[uid] || {};
-                    return {
-                        ...cleanRow,
-                        '_categoryId': row._categoryId,
-                        '_categoryName': row._categoryName,
-                        'STATUS': row.STATUS,
-                        'Nama Penuh': firebaseUser.nama || cleanRow['Nama Penuh'] || 'Tanpa Nama',
-                        'No. Telefon': firebaseUser.phone || cleanRow['No. Telefon'] || '-',
-                        'Alamat': firebaseUser.address || cleanRow['Alamat'] || cleanRow['alamat'] || '-'
-                    };
-                });
-                appData.byTab[res.id] = mergedRows;
-                appData.allRecords = [...appData.allRecords, ...mergedRows];
-            });
-        }
-        function normalizeStatus(status) {
-            if (!status) return "DALAM SEMAKAN";
-            const s = status.toLowerCase().trim();
-            if (s.includes('selesai') || s.includes('lulus')) return "TELAH SELESAI";
-            if (s.includes('tindakan') || s.includes('proses')) return "SEDANG DI PROSES";
-            return "DALAM SEMAKAN";
-        }
-        let catChartInstance = null;
-        let statusChartInstance = null;
-        function parseDate(dateStr) {
-            if (!dateStr) return null;
-            const cleanStr = dateStr.split(' ')[0];
-            let d = new Date(cleanStr);
-            if (!isNaN(d.getTime())) return d;
-            const parts = cleanStr.split('/');
-            if (parts.length === 3) return new Date(parts[2], parts[1] - 1, parts[0]);
-            return null;
-        }
-        window.UI.resetDashFilters = function() {
-            document.getElementById('dashDateStart').value = '';
-            document.getElementById('dashDateEnd').value = '';
-            window.UI.renderDashboard();
-        }
-        window.UI.renderDashboard = function() {
-            const startDateStr = document.getElementById('dashDateStart') ? document.getElementById('dashDateStart').value : '';
-            const endDateStr = document.getElementById('dashDateEnd') ? document.getElementById('dashDateEnd').value : '';
-            let startDate = startDateStr ? new Date(startDateStr) : null;
-            let endDate = endDateStr ? new Date(endDateStr) : null;
-            if (endDate) endDate.setHours(23, 59, 59, 999);
-            const filteredData = appData.allRecords.filter(row => {
-                if (!startDate && !endDate) return true;
-                const rowDate = parseDate(row['Timestamp']);
-                if (!rowDate) return false;
-                if (startDate && rowDate < startDate) return false;
-                if (endDate && rowDate > endDate) return false;
-                return true;
-            });
-            const total = filteredData.length;
-            const selesai = filteredData.filter(r => r.STATUS === 'TELAH SELESAI').length;
-            const proses = filteredData.filter(r => r.STATUS === 'SEDANG DI PROSES').length;
-            const semakan = filteredData.filter(r => r.STATUS === 'DALAM SEMAKAN').length;
-            document.getElementById('stat-total').innerText = total;
-            document.getElementById('stat-solved').innerText = selesai;
-            document.getElementById('stat-process').innerText = proses;
-            document.getElementById('stat-semakan').innerText = semakan;
-            const dataSemakan = TABS.map(t => filteredData.filter(r => r._categoryId === t.id && r.STATUS === 'DALAM SEMAKAN').length);
-            const dataProses = TABS.map(t => filteredData.filter(r => r._categoryId === t.id && r.STATUS === 'SEDANG DI PROSES').length);
-            const dataSelesai = TABS.map(t => filteredData.filter(r => r._categoryId === t.id && r.STATUS === 'TELAH SELESAI').length);
-            const labels = TABS.map(t => t.name);
-            const catCtx = document.getElementById('categoryChart').getContext('2d');
-            if (catChartInstance) catChartInstance.destroy();
-            catChartInstance = new Chart(catCtx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: 'Dalam Semakan', data: dataSemakan, backgroundColor: '#1A4A9A', borderRadius: 4 },
-                        { label: 'Sedang Di Proses', data: dataProses, backgroundColor: '#f59e0b', borderRadius: 4 },
-                        { label: 'Telah Selesai', data: dataSelesai, backgroundColor: '#10b981', borderRadius: 4 }
-                    ]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } } }, scales: { y: { stacked: true, beginAtZero: true, grid: { color: '#f3f4f6' } }, x: { stacked: true, grid: { display: false } } } }
-            });
-            const statCtx = document.getElementById('statusChart').getContext('2d');
-            if (statusChartInstance) statusChartInstance.destroy();
-            statusChartInstance = new Chart(statCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Telah Selesai', 'Sedang Di Proses', 'Dalam Semakan'],
-                    datasets: [{ data: [selesai, proses, semakan], backgroundColor: ['#10b981', '#f59e0b', '#1A4A9A'], borderWidth: 0 }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } } } }
-            });
-        };
-        window.UI.renderTable = function(tabId = appData.currentTab) {
-            let data = [];
-            if (tabId === 'all') data = appData.allRecords;
-            else data = appData.byTab[tabId] || [];
-            const searchText = document.getElementById('searchInput') ? document.getElementById('searchInput').value.toLowerCase() : '';
-            const statusFilter = document.getElementById('statusFilter') ? document.getElementById('statusFilter').value : '';
-            const startDateStr = document.getElementById('dateStart') ? document.getElementById('dateStart').value : '';
-            const endDateStr = document.getElementById('dateEnd') ? document.getElementById('dateEnd').value : '';
-            let startDate = startDateStr ? new Date(startDateStr) : null;
-            let endDate = endDateStr ? new Date(endDateStr) : null;
-            if (endDate) endDate.setHours(23, 59, 59, 999);
-            const filteredData = data.filter(row => {
-                let matchesText = true;
-                if (searchText) matchesText = Object.values(row).join(' ').toLowerCase().includes(searchText);
-                let matchesDate = true;
-                if (startDate || endDate) {
-                    const rowDate = parseDate(row['Timestamp']);
-                    if (rowDate) {
-                        if (startDate && rowDate < startDate) matchesDate = false;
-                        if (endDate && rowDate > endDate) matchesDate = false;
-                    } else matchesDate = false;
-                }
-                let matchesStatus = true;
-                if (statusFilter && row.STATUS !== statusFilter) matchesStatus = false;
-                return matchesText && matchesDate && matchesStatus;
-            });
-            appData.currentFilteredData = filteredData;
-            const cols = appData.visibleColumns;
-            let headerHtml = '';
-            if (cols.date) headerHtml += `<th class="p-4 font-semibold whitespace-nowrap">Tarikh</th>`;
-            if (cols.category) headerHtml += `<th class="p-4 font-semibold whitespace-nowrap">Kategori</th>`;
-            if (cols.ref) headerHtml += `<th class="p-4 font-semibold whitespace-nowrap">No. Rujukan</th>`;
-            if (cols.name) headerHtml += `<th class="p-4 font-semibold whitespace-nowrap">Nama Pemohon</th>`;
-            if (cols.address) headerHtml += `<th class="p-4 font-semibold whitespace-nowrap">Alamat</th>`;
-            if (cols.phone) headerHtml += `<th class="p-4 font-semibold whitespace-nowrap">No. Telefon</th>`;
-            if (cols.details) headerHtml += `<th class="p-4 font-semibold whitespace-nowrap">Perincian</th>`;
-            if (cols.attachment) headerHtml += `<th class="p-4 font-semibold text-center whitespace-nowrap">Lampiran</th>`;
-            if (cols.status) headerHtml += `<th class="p-4 font-semibold text-center whitespace-nowrap">Status</th>`;
-            if (cols.action) headerHtml += `<th class="p-4 font-semibold text-center whitespace-nowrap">Tindakan</th>`;
-            if (cols.date_completed) headerHtml += `<th class="p-4 font-semibold whitespace-nowrap bg-green-50">Tarikh Tindakan/Selesai</th>`;
-            if (cols.report_link) headerHtml += `<th class="p-4 font-semibold whitespace-nowrap bg-green-50">Laporan Tindakan/Selesai</th>`;
-            document.getElementById('tableHeaderRow').innerHTML = headerHtml;
-            const tbody = document.getElementById('dataTableBody');
-            tbody.innerHTML = '';
-            document.getElementById('showing-text').innerText = `Menunjukkan ${filteredData.length} rekod`;
-            if (filteredData.length === 0) {
-                const colCount = Object.values(cols).filter(Boolean).length;
-                tbody.innerHTML = `<tr><td colspan="${colCount}" class="p-8 text-center text-gray-400">Tiada rekod dijumpai untuk kriteria ini.</td></tr>`;
-                return;
-            }
-            filteredData.forEach(row => {
-                let badgeClass = 'status-semakan';
-                if (row.STATUS === 'TELAH SELESAI') badgeClass = 'status-selesai';
-                if (row.STATUS === 'SEDANG DI PROSES') badgeClass = 'status-proses';
-                const date = row['Timestamp'] ? row['Timestamp'].split(' ')[0] : '-';
-                const ref = row['No. Rujukan'] || '-';
-                const name = row['Nama Penuh'];
-                const address = row['Alamat'] || '-';
-                const phone = row['No. Telefon'];
-                const detail = row['Perincian 1'] || row['Perincian 2'] || '-';
-                const catName = row['_categoryName'] || '-';
+<!-- ═══════════════════════ MODAL: EDIT / TINDAKAN ════════════════════════════ -->
+<div id="modal-edit" class="fixed inset-0 z-[9500] hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+  <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto fade-in">
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl">
+      <h3 class="font-extrabold text-navy">Kemas Kini Tindakan</h3>
+      <button onclick="App.closeModal('modal-edit')" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
 
-                const attachmentUrl = row['Lampiran'] || '';
-                let attachmentHtml = '<span class="text-gray-400">-</span>';
-                if (attachmentUrl && attachmentUrl.trim().length > 5) {
-                      const firstLink = attachmentUrl.split(',')[0].trim();
-                      // BAHARU: escape href & label (elak XSS/URI jahat dari data borang)
-                      attachmentHtml = `<a href="${escapeHtml(firstLink)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-blue-700 rounded text-xs font-semibold transition-colors border border-gray-200" title="Lihat Lampiran"><i class="fas fa-paperclip"></i> Lihat</a>`;
-                }
-                const dateCompleted = (row['Tarikh Tindakan/Selesai'] || row['Tarikh Selesai']) ? new Date(row['Tarikh Tindakan/Selesai'] || row['Tarikh Selesai']).toLocaleDateString('ms-MY') : '-';
-                const reportUrl = row['Laporan Tindakan/Selesai'] || row['Laporan Penyelesaian'] || '';
-                let reportHtml = '<span class="text-gray-400">-</span>';
-                if (reportUrl && reportUrl.trim().length > 5) {
-                    reportHtml = `<a href="${escapeHtml(reportUrl)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 px-3 py-1 bg-green-100 hover:bg-green-200 text-green-700 hover:text-green-800 rounded text-xs font-semibold transition-colors border border-green-200" title="Lihat Laporan"><i class="fas fa-check-circle"></i> Lihat</a>`;
-                }
-                const rowTabId = row._categoryId;
-                const tabObj = TABS.find(t => t.id === rowTabId);
-                const rowGid = tabObj ? tabObj.gid : '';
-                let tr = `<tr class="hover:bg-gray-50 transition border-b border-gray-100 last:border-0">`;
+    <form class="p-6" onsubmit="event.preventDefault(); App.saveStatus();">
+      <input type="hidden" id="edit-ref">
+      <input type="hidden" id="edit-gid">
 
-                // BAHARU: semua field yang boleh datang dari input awam (nama, alamat,
-                // phone, perincian) di-escape sebelum masuk innerHTML — elak stored XSS
-                // yang boleh run dalam session browser admin.
-                if (cols.date) tr += `<td class="p-4 whitespace-nowrap text-gray-500 font-mono text-xs">${escapeHtml(date)}</td>`;
-                if (cols.category) tr += `<td class="p-4"><span class="text-[10px] font-bold text-[#1A4A9A] bg-blue-50 px-2 py-1 rounded uppercase tracking-wide border border-blue-100">${escapeHtml(catName)}</span></td>`;
-                if (cols.ref) tr += `<td class="p-4 font-mono text-xs text-gray-600 bg-gray-50 rounded-sm">${escapeHtml(ref)}</td>`;
-                if (cols.name) tr += `<td class="p-4 font-semibold text-gray-800">${escapeHtml(name)}</td>`;
-                if (cols.address) tr += `<td class="p-4 text-xs text-gray-600 max-w-[150px] truncate" title="${escapeHtml(address)}">${escapeHtml(address)}</td>`;
-                if (cols.phone) tr += `<td class="p-4 text-xs text-gray-600 font-mono">${escapeHtml(phone)}</td>`;
-                if (cols.details) tr += `<td class="p-4 text-gray-500 truncate max-w-xs text-xs">${escapeHtml(detail)}</td>`;
-                if (cols.attachment) tr += `<td class="p-4 text-center">${attachmentHtml}</td>`;
-                if (cols.status) tr += `<td class="p-4 text-center"><span class="status-badge ${badgeClass}">${escapeHtml(row.STATUS)}</span></td>`;
+      <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">No. Rujukan</label>
+      <input id="edit-ref-show" disabled class="w-full px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-sm text-slate-500 mb-4">
 
-                if (cols.action) {
-                    tr += `
-                    <td class="p-4 text-center">
-                        <button onclick="UI.openEditModal('${escapeHtml(ref)}', '${escapeHtml(rowGid)}', '${escapeHtml(row.STATUS)}')" class="text-[#1A4A9A] hover:bg-blue-50 p-2 rounded-full transition-colors" title="Sunting Status">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                    </td>`;
-                }
-                if (cols.date_completed) tr += `<td class="p-4 whitespace-nowrap text-gray-600 font-mono text-xs bg-gray-50/50">${escapeHtml(dateCompleted)}</td>`;
-                if (cols.report_link) tr += `<td class="p-4 text-center bg-gray-50/50">${reportHtml}</td>`;
+      <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Pemohon</label>
+      <input id="edit-name-show" disabled class="w-full px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-200 text-sm text-slate-500 mb-4">
 
-                tr += `</tr>`;
-                tbody.innerHTML += tr;
-            });
-        };
-        window.UI.filterTable = function() { window.UI.renderTable(appData.currentTab); };
-        window.UI.resetFilters = function() {
-            document.getElementById('searchInput').value = '';
-            document.getElementById('statusFilter').value = '';
-            document.getElementById('dateStart').value = '';
-            document.getElementById('dateEnd').value = '';
-            window.UI.renderTable(appData.currentTab);
-        };
-        window.UI.openEditModal = function(refNo, tabId, currentStatus) {
-            document.getElementById('edit-ref-no').value = refNo;
-            document.getElementById('display-ref-no').value = refNo;
-            document.getElementById('edit-tab-id').value = tabId;
-            document.getElementById('new-status').value = currentStatus;
+      <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Status</label>
+      <select id="edit-status" onchange="App.onStatusChange()" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-brand mb-4 bg-white">
+        <option value="DALAM SEMAKAN">DALAM SEMAKAN</option>
+        <option value="SEDANG DI PROSES">SEDANG DI PROSES</option>
+        <option value="TELAH SELESAI">TELAH SELESAI</option>
+      </select>
 
-            document.getElementById('upload-file-input').value = "";
-            document.getElementById('build-summary').value = "";
-            document.getElementById('build-images').value = "";
+      <div id="report-box" class="hidden rounded-xl bg-slate-50 border border-slate-200 p-4 mb-5">
+        <p id="report-label" class="text-xs font-bold text-brand mb-3">Laporan Tindakan</p>
 
-            UI.handleStatusChange();
-            document.getElementById('edit-status-modal').classList.remove('hidden');
-        };
-        window.UI.closeModal = function(modalId) {
-            document.getElementById(modalId).classList.add('hidden');
-        };
-        window.UI.handleStatusChange = function() {
-            const status = document.getElementById('new-status').value;
-            const optionsDiv = document.getElementById('completion-options');
-            const labelText = document.getElementById('completion-label');
+        <div class="grid grid-cols-2 gap-2 mb-4">
+          <label class="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer hover:border-brand transition text-xs">
+            <input type="radio" name="rmethod" value="upload" checked onclick="App.onMethodChange()" class="accent-brand"> Muat Naik Fail
+          </label>
+          <label class="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white border border-slate-200 cursor-pointer hover:border-brand transition text-xs">
+            <input type="radio" name="rmethod" value="build" onclick="App.onMethodChange()" class="accent-brand"> Bina Laporan
+          </label>
+        </div>
 
-            if (status === "TELAH SELESAI" || status === "SEDANG DI PROSES") {
-                optionsDiv.classList.remove('hidden');
-                labelText.innerText = (status === "TELAH SELESAI") ? "Pilihan Laporan Penyelesaian Akhir:" : "Pilihan Laporan Tindakan (Proses):";
-            } else {
-                optionsDiv.classList.add('hidden');
-            }
-        };
-        window.UI.toggleReportType = function() {
-            const type = document.querySelector('input[name="report_type"]:checked').value;
-            if (type === 'upload') {
-                document.getElementById('type-upload').classList.remove('hidden');
-                document.getElementById('type-build').classList.add('hidden');
-            } else {
-                document.getElementById('type-upload').classList.add('hidden');
-                document.getElementById('type-build').classList.remove('hidden');
-            }
-        };
-        const readFileAsBase64 = (file) => {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve({
-                    name: file.name, mimeType: file.type, data: reader.result.split(',')[1]
-                });
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-        };
-        // BAHARU: idToken disertakan — action updateStatus/complete_ticket kini
-        // admin-only di server (lihat KARA-Di_AppsScript_v2.gs), jadi WAJIB hantar
-        // token sesi Firebase admin yang sedang log masuk.
-        window.UI.updateStatus = async function() {
-            if (!auth.currentUser) { UI.showToast("Sesi admin tamat. Sila log masuk semula.", "error"); return; }
-            const refNo = document.getElementById('edit-ref-no').value;
-            const tabId = document.getElementById('edit-tab-id').value;
-            const newStatus = document.getElementById('new-status').value;
-            const btn = document.getElementById('btn-save-status');
-            const originalBtnText = btn.innerHTML;
-            btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Menyimpan...`;
-            btn.disabled = true;
-            try {
-                const idToken = await auth.currentUser.getIdToken();
-                let payload = {
-                    action: "updateStatus",
-                    idToken: idToken,
-                    refNo: refNo,
-                    tabId: tabId,
-                    newStatus: newStatus
-                };
-                if (newStatus === "TELAH SELESAI" || newStatus === "SEDANG DI PROSES") {
-                    const reportType = document.querySelector('input[name="report_type"]:checked').value;
-                    payload.action = "complete_ticket";
-                    payload.reportMethod = reportType;
-                    if (reportType === 'upload') {
-                        const fileInput = document.getElementById('upload-file-input');
-                        if (fileInput.files.length > 0) {
-                            const fileData = await readFileAsBase64(fileInput.files[0]);
-                            payload.fileData = fileData;
-                        } else {
-                             alert("Sila muat naik fail laporan.");
-                             throw new Error("File missing");
-                        }
-                    } else {
-                        const summary = document.getElementById('build-summary').value;
-                        const imgInput = document.getElementById('build-images');
-                        if (!summary) {
-                             alert("Sila masukkan ringkasan tindakan/penyelesaian.");
-                             throw new Error("Summary missing");
-                        }
+        <div id="method-upload" class="space-y-2">
+          <label class="block text-[11px] font-semibold text-slate-600">Fail laporan (PDF / gambar)</label>
+          <input type="file" id="up-file" class="w-full text-xs border border-slate-300 rounded-xl p-2.5 bg-white">
+        </div>
 
-                        payload.summary = summary;
-                        payload.images = [];
+        <div id="method-build" class="hidden space-y-3">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Ringkasan tindakan</label>
+            <textarea id="build-summary" rows="3" placeholder="Terangkan tindakan yang telah diambil…"
+                      class="w-full text-sm border border-slate-300 rounded-xl p-3 outline-none focus:ring-2 focus:ring-brand"></textarea>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Gambar bukti (maks 3)</label>
+            <input type="file" id="build-images" multiple accept="image/*" class="w-full text-xs border border-slate-300 rounded-xl p-2.5 bg-white">
+          </div>
+        </div>
+      </div>
 
-                        if (imgInput.files.length > 0) {
-                            for (let i = 0; i < imgInput.files.length; i++) {
-                                const imgData = await readFileAsBase64(imgInput.files[i]);
-                                payload.images.push(imgData);
-                            }
-                        }
-                    }
-                }
-                const response = await fetch(APPS_SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify(payload)
-                });
+      <div class="flex justify-end gap-2">
+        <button type="button" onclick="App.closeModal('modal-edit')" class="px-5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 text-sm font-semibold transition">Batal</button>
+        <button type="submit" id="save-btn" class="px-5 py-2.5 rounded-xl bg-brand hover:bg-navy text-white text-sm font-bold flex items-center gap-2 transition shadow-sm">
+          <i class="fa-solid fa-floppy-disk"></i> Simpan
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
 
-                const resJson = await response.json();
+<!-- ════════════════════════ MODAL: PRATONTON PDF ═════════════════════════════ -->
+<div id="modal-pdf" class="fixed inset-0 z-[9500] hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+  <div class="bg-slate-100 w-full max-w-5xl h-[94vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+    <div class="bg-white px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+      <h3 class="font-extrabold text-navy flex items-center gap-3"><i class="fa-solid fa-print text-brand"></i> Pratonton Laporan</h3>
+      <button onclick="App.closeModal('modal-pdf')" class="text-slate-400 hover:text-red-500"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div class="flex-1 overflow-auto p-6 bg-slate-200"><div id="pdf-body"></div></div>
+    <div class="bg-white px-6 py-4 border-t border-slate-200 flex justify-end gap-2">
+      <button onclick="App.closeModal('modal-pdf')" class="px-5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 text-sm font-semibold">Batal</button>
+      <button onclick="App.downloadPdf()" class="px-5 py-2.5 rounded-xl bg-brand hover:bg-navy text-white text-sm font-bold flex items-center gap-2 shadow-sm">
+        <i class="fa-solid fa-download"></i> Simpan PDF
+      </button>
+    </div>
+  </div>
+</div>
 
-                if (resJson.status === 'success') {
-                     UI.showToast("Status & Maklumat berjaya dikemaskini!", "success");
-                     window.UI.closeModal('edit-status-modal');
 
-                     appData.allRecords.forEach(r => {
-                        if (r['No. Rujukan'] === refNo) {
-                            r.STATUS = newStatus;
-                            if (resJson.completedDate) r['Tarikh Selesai'] = resJson.completedDate;
-                            if (resJson.reportLink) r['Laporan Penyelesaian'] = resJson.reportLink;
-                        }
-                     });
-                     if (appData.currentTab === 'dashboard') UI.renderDashboard();
-                     else UI.renderTable(appData.currentTab);
-                } else {
-                    throw new Error(resJson.message || "Unknown error");
-                }
-            } catch (error) {
-                if (error.message !== "File missing" && error.message !== "Summary missing") {
-                    console.error('Error:', error);
-                    UI.showToast("Ralat: " + error.message, "error");
-                }
-            } finally {
-                btn.innerHTML = originalBtnText;
-                btn.disabled = false;
-            }
-        };
-        window.UI.downloadExcel = function() {
-            let data = appData.currentFilteredData;
-            let tabName = "";
-            if (appData.currentTab === 'all') tabName = "Semua_Rekod_Tapis";
-            else {
-                const tabInfo = TABS.find(t => t.id === appData.currentTab);
-                tabName = (tabInfo ? tabInfo.name : "Dashboard") + "_Tapis";
-            }
-            if (!data || data.length === 0) return UI.showToast("Tiada data untuk dimuat turun.", "error");
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-            const excelData = data.map(r => {
-                const { _categoryId, _categoryName, ...cleanRow } = r;
-                return {
-                    "Tarikh": r['Timestamp'], "Kategori": r['_categoryName'], "Rujukan": r['No. Rujukan'], "Nama": r['Nama Penuh'],
-                    "Alamat": r['Alamat'], "Telefon": r['No. Telefon'], "Perincian": r['Perincian 1'] || r['Perincian 2'] || '',
-                    "Lampiran": r['Lampiran'], "Status": r['STATUS']
-                };
-            });
-            const ws = XLSX.utils.json_to_sheet(excelData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, tabName.substring(0, 30));
-            const dateStr = new Date().toISOString().split('T')[0];
-            XLSX.writeFile(wb, `Karambunai_${tabName.replace(/\s/g, '_')}_${dateStr}.xlsx`);
-        };
-        window.UI.generateReport = function() {
-             const container = document.getElementById('pdf-container');
-             container.innerHTML = '<div class="text-center p-10">Penjanaan PDF sedang diproses...</div>';
-             UI.actualGenerateReport();
-        };
-        window.UI.actualGenerateReport = function() {
-            const container = document.getElementById('pdf-container');
-            container.innerHTML = '';
-            const dateStr = new Date().toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' });
-            let reportData = [];
-            let dateRangeText = "Semua Rekod (Tiada Penapisan)";
+/* ═══════════════════════════ KONFIGURASI ═══════════════════════════ */
 
-            let total = 0, selesai = 0, proses = 0, semakan = 0;
-            if (appData.currentTab === 'dashboard') {
-                const startDateStr = document.getElementById('dashDateStart') ? document.getElementById('dashDateStart').value : '';
-                const endDateStr = document.getElementById('dashDateEnd') ? document.getElementById('dashDateEnd').value : '';
-                if (startDateStr || endDateStr) {
-                    const s = startDateStr ? new Date(startDateStr).toLocaleDateString('ms-MY') : 'Awal';
-                    const e = endDateStr ? new Date(endDateStr).toLocaleDateString('ms-MY') : 'Kini';
-                    dateRangeText = `${s} hingga ${e}`;
-                }
-                let startDate = startDateStr ? new Date(startDateStr) : null;
-                let endDate = endDateStr ? new Date(endDateStr) : null;
-                if (endDate) endDate.setHours(23, 59, 59, 999);
-                reportData = appData.allRecords.filter(row => {
-                    if (!startDate && !endDate) return true;
-                    const rowDate = parseDate(row['Timestamp']);
-                    if (!rowDate) return false;
-                    if (startDate && rowDate < startDate) return false;
-                    if (endDate && rowDate > endDate) return false;
-                    return true;
-                });
-            } else {
-                reportData = appData.currentFilteredData.length > 0 ? appData.currentFilteredData : (appData.byTab[appData.currentTab] || []);
-                const startDateStr = document.getElementById('dateStart') ? document.getElementById('dateStart').value : '';
-                const endDateStr = document.getElementById('dateEnd') ? document.getElementById('dateEnd').value : '';
-                if (startDateStr || endDateStr) {
-                    const s = startDateStr ? new Date(startDateStr).toLocaleDateString('ms-MY') : 'Awal';
-                    const e = endDateStr ? new Date(endDateStr).toLocaleDateString('ms-MY') : 'Kini';
-                    dateRangeText = `${s} hingga ${e}`;
-                }
-            }
-            total = reportData.length;
-            selesai = reportData.filter(r => r.STATUS === 'TELAH SELESAI').length;
-            proses = reportData.filter(r => r.STATUS === 'SEDANG DI PROSES').length;
-            semakan = reportData.filter(r => r.STATUS === 'DALAM SEMAKAN').length;
-            const headerHtml = `
-                <div class="pdf-header">
-                    <img src="https://i.postimg.cc/MptXDDPS/karadi.png" class="pdf-logo" alt="Logo">
-                    <div class="pdf-title">
-                        <h1>LAPORAN ADUAN RAKYAT</h1>
-                        <p>Kawasan N.16 KARAMBUNAI</p>
-                        <p>Tarikh Laporan: ${dateStr}</p>
-                        <p style="font-weight: bold; color: #1A4A9A; margin-top: 4px;">Tempoh: ${dateRangeText}</p>
-                    </div>
-                </div>`;
-            const footerHtml = `<div class="pdf-footer"><span style="background: #1f2937; color: white; padding: 4px 8px; border-radius: 4px; font-weight: bold;">POWERED BY JIBRIL</span><br><br>Dijana secara automatik oleh Sistem Aduan Karambunai</div>`;
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAH_P1CHHVBIXRGE0zkElJVyMO2LRbb93Y",
+  authDomain: "kara-di.firebaseapp.com",
+  projectId: "kara-di",
+  storageBucket: "kara-di.firebasestorage.app",
+  messagingSenderId: "9136488162",
+  appId: "1:9136488162:web:a8b1a9eea524086d75e8bb"
+};
 
-            const page1 = document.createElement('div');
-            page1.className = 'a4-page';
+// Kategori — gid MESTI sama dengan SHEET_GIDS dalam Apps Script
+const TABS = [
+  { id: 0, key: "Jemputan",     name: "Jemputan Rasmi",   gid: "467127359",  icon: "fa-envelope-open-text" },
+  { id: 1, key: "Permohonan",   name: "Mohon Bantuan",    gid: "296654056",  icon: "fa-hand-holding-heart" },
+  { id: 2, key: "Aduan",        name: "Aduan Rakyat",     gid: "1279452908", icon: "fa-bullhorn" },
+  { id: 3, key: "Temujanji",    name: "Temujanji",        gid: "109622860",  icon: "fa-calendar-check" },
+  { id: 4, key: "Maklum Balas", name: "Idea / Cadangan",  gid: "915405611",  icon: "fa-lightbulb" },
+  { id: 5, key: "Sukarelawan",  name: "Sukarelawan",      gid: "1646016019", icon: "fa-users" }
+];
 
-            if (appData.currentTab === 'dashboard') {
-                const catChartCanvas = document.getElementById('categoryChart');
-                const statChartCanvas = document.getElementById('statusChart');
-                const catChartImg = catChartCanvas ? catChartCanvas.toDataURL('image/png', 1.0) : '';
-                const statChartImg = statChartCanvas ? statChartCanvas.toDataURL('image/png', 1.0) : '';
-                page1.innerHTML = `
-                    ${headerHtml}
-                    <div class="pdf-content-body">
-                        <h2 style="font-size:14px;font-weight:700;color:#1f2937;border-bottom:2px solid #f3f4f6;padding-bottom:8px;margin-bottom:15px;text-transform:uppercase;">Ringkasan Keseluruhan Dashboard</h2>
+// Lajur jadual — No. KP / IC SENGAJA TIDAK dipaparkan (privasi & PDPA)
+const COLUMNS = [
+  { key: 'date',      label: 'Tarikh' },
+  { key: 'category',  label: 'Kategori' },
+  { key: 'ref',       label: 'No. Rujukan' },
+  { key: 'name',      label: 'Nama Pemohon' },
+  { key: 'address',   label: 'Alamat' },
+  { key: 'phone',     label: 'No. Telefon' },
+  { key: 'detail',    label: 'Perincian' },
+  { key: 'attach',    label: 'Lampiran' },
+  { key: 'status',    label: 'Status' },
+  { key: 'action',    label: 'Tindakan' },
+  { key: 'donedate',  label: 'Tarikh Selesai' },
+  { key: 'report',    label: 'Laporan' }
+];
 
-                        <div style="display: flex; gap: 15px; margin-bottom: 20px;">
-                            <div style="flex: 1; border: 1px solid #e5e7eb; background: #ffffff; padding: 15px; border-radius: 8px;">
-                                <div style="font-size: 10px; color: #6b7280; font-weight: bold; margin-bottom: 5px; text-transform: uppercase;">Jumlah Rekod</div>
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="font-size: 28px; font-weight: bold; color: #111827;">${total}</div>
-                                    <div style="background: #f3f4f6; color: #4b5563; padding: 8px; border-radius: 6px; font-size: 16px;"><i class="fas fa-database"></i></div>
-                                </div>
-                            </div>
-                            <div style="flex: 1; border: 1px solid #e5e7eb; background: #ffffff; padding: 15px; border-radius: 8px;">
-                                <div style="font-size: 10px; color: #6b7280; font-weight: bold; margin-bottom: 5px; text-transform: uppercase;">Telah Selesai</div>
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="font-size: 28px; font-weight: bold; color: #10b981;">${selesai}</div>
-                                    <div style="background: #ecfdf5; color: #10b981; border: 1px solid #d1fae5; padding: 8px; border-radius: 6px; font-size: 16px;"><i class="fas fa-check-circle"></i></div>
-                                </div>
-                            </div>
-                            <div style="flex: 1; border: 1px solid #e5e7eb; background: #ffffff; padding: 15px; border-radius: 8px;">
-                                <div style="font-size: 10px; color: #6b7280; font-weight: bold; margin-bottom: 5px; text-transform: uppercase;">Sedang Di Proses</div>
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="font-size: 28px; font-weight: bold; color: #f59e0b;">${proses}</div>
-                                    <div style="background: #fffbeb; color: #f59e0b; border: 1px solid #fef3c7; padding: 8px; border-radius: 6px; font-size: 16px;"><i class="fas fa-clock"></i></div>
-                                </div>
-                            </div>
-                            <div style="flex: 1; border: 1px solid #e5e7eb; background: #ffffff; padding: 15px; border-radius: 8px;">
-                                <div style="font-size: 10px; color: #6b7280; font-weight: bold; margin-bottom: 5px; text-transform: uppercase;">Dalam Semakan</div>
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="font-size: 28px; font-weight: bold; color: #1A4A9A;">${semakan}</div>
-                                    <div style="background: #eff6ff; color: #1A4A9A; border: 1px solid #dbeafe; padding: 8px; border-radius: 6px; font-size: 16px;"><i class="fas fa-file-import"></i></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="display: flex; gap: 15px;">
-                            <div style="flex: 2; border: 1px solid #e5e7eb; background: #ffffff; padding: 15px; border-radius: 8px;">
-                                <h3 style="font-size: 12px; font-weight: bold; margin-bottom: 15px; color: #1f2937; text-transform: uppercase;">Statistik Mengikut Kategori (Perbandingan)</h3>
-                                <div style="text-align: center; height: 280px;">
-                                    ${catChartImg ? `<img src="${catChartImg}" style="max-width: 100%; height: 100%; object-fit: contain;">` : '<p style="color:#9ca3af; font-size:12px; margin-top:20px;">Tiada data / Graf gagal dimuatkan</p>'}
-                                </div>
-                            </div>
-                            <div style="flex: 1; border: 1px solid #e5e7eb; background: #ffffff; padding: 15px; border-radius: 8px;">
-                                <h3 style="font-size: 12px; font-weight: bold; margin-bottom: 15px; color: #1f2937; text-transform: uppercase;">Status Keseluruhan</h3>
-                                <div style="text-align: center; height: 280px; display: flex; justify-content: center; align-items: center;">
-                                    ${statChartImg ? `<img src="${statChartImg}" style="max-width: 100%; height: 100%; object-fit: contain;">` : '<p style="color:#9ca3af; font-size:12px;">Tiada data</p>'}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    ${footerHtml}
-                `;
-            } else {
-                page1.innerHTML = `
-                    ${headerHtml}
-                    <div class="pdf-content-body">
-                        <h2 style="font-size:16px;font-weight:700;color:#1f2937;border-bottom:2px solid #f3f4f6;padding-bottom:8px;margin-bottom:20px;text-transform:uppercase;">Ringkasan Eksekutif</h2>
-                        <table style="width:100%;border-collapse:separate;border-spacing:0;margin-bottom:30px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
-                            <tr style="background:#f9fafb;">
-                                <td style="padding:15px;border-bottom:1px solid #e5e7eb;font-weight:600;">Jumlah Rekod (Tapis)</td>
-                                <td style="padding:15px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:18px;font-weight:800;color:#1A4A9A;">${total}</td>
-                            </tr>
-                            <tr>
-                                <td style="padding:12px;border-bottom:1px solid #eee;color:#065f46;font-weight:500;">Telah Selesai</td>
-                                <td style="padding:12px;border-bottom:1px solid #eee;text-align:center;color:#065f46;font-weight:700;">${selesai}</td>
-                            </tr>
-                            <tr>
-                                <td style="padding:12px;border-bottom:1px solid #eee;color:#b45309;font-weight:500;">Sedang Di Proses</td>
-                                <td style="padding:12px;border-bottom:1px solid #eee;text-align:center;color:#b45309;font-weight:700;">${proses}</td>
-                            </tr>
-                            <tr>
-                                <td style="padding:12px;color:#1e40af;font-weight:500;">Dalam Semakan</td>
-                                <td style="padding:12px;text-align:center;color:#1e40af;font-weight:700;">${semakan}</td>
-                            </tr>
-                        </table>
-                    </div>
-                    ${footerHtml}
-                `;
-            }
-            container.appendChild(page1);
-            document.getElementById('pdf-preview-modal').classList.remove('hidden');
-        };
-        window.UI.confirmDownloadPDF = function() {
-            const container = document.getElementById('pdf-container');
-            const opt = { margin: 0, filename: `Laporan_Aduan_Karambunai_${new Date().getTime()}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-            html2pdf().set(opt).from(container).save().then(() => { window.UI.closeModal('pdf-preview-modal'); });
-        };
-    </script>
+const LS_URL_KEY = 'https://script.google.com/macros/s/AKfycbx9CofohnQ_LDy4x08MPr8owVM3wTJUx3q6DkILT_hnUx1-OXjRwBldNPOY0Wnz5OYh/exec';
+const SS_TOKEN_KEY = 'karadi_session_token';
+
+/* ═══════════════════════════ STORAN SELAMAT ═══════════════════════════ */
+
+const store = {
+  get(k)      { try { return localStorage.getItem(k); } catch (e) { return mem[k] ?? null; } },
+  set(k, v)   { try { localStorage.setItem(k, v); } catch (e) { mem[k] = v; } },
+  del(k)      { try { localStorage.removeItem(k); } catch (e) { delete mem[k]; } },
+  sGet(k)     { try { return sessionStorage.getItem(k); } catch (e) { return mem[k] ?? null; } },
+  sSet(k, v)  { try { sessionStorage.setItem(k, v); } catch (e) { mem[k] = v; } },
+  sDel(k)     { try { sessionStorage.removeItem(k); } catch (e) { delete mem[k]; } }
+};
+const mem = {};
+
+/* ═══════════════════════════ STATE ═══════════════════════════ */
+
+const S = {
+  url: store.get(LS_URL_KEY) || '',
+  token: store.sGet(SS_TOKEN_KEY) || '',
+  email: '',
+  byTab: {},          // { tabId: [rows] }
+  all: [],            // semua rekod
+  filtered: [],       // hasil tapisan semasa
+  profiles: {},       // uid -> profil Firestore
+  view: 'dashboard',
+  cols: COLUMNS.reduce((a, c) => (a[c.key] = true, a), {}),
+  charts: { cat: null, status: null }
+};
+
+let fb = null, auth = null, db = null;
+try {
+  fb = initializeApp(FIREBASE_CONFIG);
+  auth = getAuth(fb);
+  db = getFirestore(fb);
+} catch (e) {
+  console.warn('Firebase tidak dapat dimulakan (bukan kritikal):', e);
+}
+
+/* ═══════════════════════════ UTILITI ═══════════════════════════ */
+
+const esc = (v) => {
+  const d = document.createElement('div');
+  d.textContent = (v === null || v === undefined) ? '' : String(v);
+  return d.innerHTML;
+};
+
+const show = (id) => document.getElementById(id).classList.remove('hidden');
+const hide = (id) => document.getElementById(id).classList.add('hidden');
+const showFlex = (id) => { const el = document.getElementById(id); el.classList.remove('hidden'); el.classList.add('flex'); };
+const hideFlex = (id) => { const el = document.getElementById(id); el.classList.add('hidden'); el.classList.remove('flex'); };
+
+function toast(msg, type = 'success') {
+  const wrap = document.getElementById('toasts');
+  const el = document.createElement('div');
+  const map = { success: ['fa-circle-check', 'bg-emerald-600'], error: ['fa-circle-exclamation', 'bg-red-600'], info: ['fa-circle-info', 'bg-brand'] };
+  const [ico, bg] = map[type] || map.success;
+  el.className = `toast pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl shadow-xl text-white ${bg} max-w-sm`;
+  el.innerHTML = `<i class="fa-solid ${ico} mt-0.5"></i><span class="text-xs font-medium leading-relaxed">${esc(msg)}</span>`;
+  wrap.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 4500);
+}
+
+function banner(html, level = 'error') {
+  const el = document.getElementById('conn-banner');
+  const styles = {
+    error: 'bg-red-50 border-red-200 text-red-700',
+    warn:  'bg-amber-50 border-amber-200 text-amber-800',
+    ok:    'bg-emerald-50 border-emerald-200 text-emerald-700'
+  };
+  el.className = `mx-4 md:mx-7 mt-4 rounded-xl border px-4 py-3 text-xs ${styles[level]}`;
+  el.innerHTML = html;
+}
+const clearBanner = () => { const el = document.getElementById('conn-banner'); el.className = 'hidden'; el.innerHTML = ''; };
+
+const normStatus = (s) => {
+  const t = String(s || '').toLowerCase().trim();
+  if (t.includes('selesai') || t.includes('lulus')) return 'TELAH SELESAI';
+  if (t.includes('proses') || t.includes('tindakan')) return 'SEDANG DI PROSES';
+  return 'DALAM SEMAKAN';
+};
+
+function parseDate(v) {
+  if (!v) return null;
+  const s = String(v).trim().split(' ')[0];
+  const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmy) return new Date(+dmy[3], +dmy[2] - 1, +dmy[1]);
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+const pick = (row, names) => {
+  for (const n of names) {
+    for (const k of Object.keys(row)) {
+      if (String(k).trim().toLowerCase() === n.toLowerCase()) {
+        const v = row[k];
+        if (v !== '' && v !== null && v !== undefined) return v;
+      }
+    }
+  }
+  return '';
+};
+
+/* ═══════════════════════════ PANGGILAN API ═══════════════════════════ */
+
+async function api(payload, { auth: needAuth = true } = {}) {
+  if (!S.url) throw new Error('URL Apps Script belum ditetapkan.');
+  const body = { ...payload };
+  if (needAuth) body.sessionToken = S.token;
+
+  let res, raw;
+  try {
+    res = await fetch(S.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(body)
+    });
+    raw = await res.text();
+  } catch (netErr) {
+    throw new Error(`Sambungan gagal: ${netErr.message}. Semak URL Apps Script & sambungan internet.`);
+  }
+
+  console.log(`[KARA-Di] ${payload.action} → HTTP ${res.status}`, raw.slice(0, 500));
+
+  let json;
+  try {
+    json = JSON.parse(raw);
+  } catch (e) {
+    throw new Error(`Respons bukan JSON (HTTP ${res.status}). Petikan: ${raw.slice(0, 180)}`);
+  }
+  if (json.status === 'error') throw new Error(json.message || 'Ralat tidak diketahui dari pelayan.');
+  return json;
+}
+
+const fileToB64 = (file) => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve({ name: file.name, mimeType: file.type, data: r.result.split(',')[1] });
+  r.onerror = reject;
+  r.readAsDataURL(file);
+});
+
+/* ═══════════════════════════ APP ═══════════════════════════ */
+
+const App = {};
+window.App = App;
+
+/* ---------- Setup URL ---------- */
+
+App.openSetup = function () {
+  document.getElementById('setup-url').value = S.url || '';
+  document.getElementById('setup-msg').classList.add('hidden');
+  hide('app'); hideFlex('screen-login'); hideFlex('screen-loading');
+  showFlex('screen-setup');
+};
+
+App.testAndSaveUrl = async function () {
+  const input = document.getElementById('setup-url').value.trim();
+  const msg = document.getElementById('setup-msg');
+  const btn = document.getElementById('setup-btn');
+
+  const setMsg = (text, level) => {
+    const styles = { error: 'bg-red-50 border-red-200 text-red-700', ok: 'bg-emerald-50 border-emerald-200 text-emerald-700' };
+    msg.className = `mb-4 text-xs rounded-xl px-4 py-3 border ${styles[level]}`;
+    msg.innerHTML = text;
+  };
+
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec/.test(input)) {
+    setMsg('URL tidak sah. Ia mesti bermula dengan <strong>https://script.google.com/macros/s/</strong> dan berakhir dengan <strong>/exec</strong>.', 'error');
+    return;
+  }
+
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menguji sambungan…';
+
+  const prevUrl = S.url;
+  S.url = input;
+  try {
+    const res = await api({ action: 'ping' }, { auth: false });
+    store.set(LS_URL_KEY, input);
+    let note = `Sambungan berjaya — KARA-Di ${esc(res.version || '')}.`;
+    if (res.adminPasswordSet === false) {
+      note += ' <strong>Amaran:</strong> kata laluan admin belum ditetapkan — jalankan <code>setupAdminPassword()</code> dalam editor Apps Script dahulu.';
+    }
+    setMsg(note, 'ok');
+    setTimeout(() => { hideFlex('screen-setup'); App.showLogin(); }, 1200);
+  } catch (e) {
+    S.url = prevUrl;
+    setMsg(`Gagal: ${esc(e.message)}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
+};
+
+/* ---------- Login ---------- */
+
+App.showLogin = function () {
+  hide('app'); hideFlex('screen-setup'); hideFlex('screen-loading');
+  showFlex('screen-login');
+  document.getElementById('login-msg').classList.add('hidden');
+};
+
+App.login = async function () {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const msg = document.getElementById('login-msg');
+  const btn = document.getElementById('login-btn');
+  msg.classList.add('hidden');
+
+  if (!email || !pass) {
+    msg.textContent = 'Sila isi emel dan kata laluan.';
+    msg.classList.remove('hidden');
+    return;
+  }
+
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mengesahkan…';
+
+  try {
+    // 1) Auth utama — server-side di Apps Script (tiada panggilan luar diperlukan)
+    const res = await api({ action: 'admin_login', email, password: pass }, { auth: false });
+    S.token = res.sessionToken;
+    S.email = res.adminEmail || email;
+    store.sSet(SS_TOKEN_KEY, S.token);
+
+    // 2) Firebase — HANYA untuk baca profil Firestore. Gagal pun tak apa.
+    if (auth) {
+      try { await signInWithEmailAndPassword(auth, email, pass); }
+      catch (fbErr) { console.warn('Firebase sign-in gagal (profil Firestore tak dimuat):', fbErr.code || fbErr); }
+    }
+
+    hideFlex('screen-login');
+    document.getElementById('login-pass').value = '';
+    await App.boot();
+  } catch (e) {
+    msg.textContent = e.message;
+    msg.classList.remove('hidden');
+    document.getElementById('login-pass').value = '';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
+};
+
+App.logout = async function () {
+  try { await api({ action: 'admin_logout' }); } catch (e) { /* abaikan */ }
+  if (auth) { try { await signOut(auth); } catch (e) { /* abaikan */ } }
+  S.token = ''; S.all = []; S.byTab = {}; S.profiles = {}; S.filtered = [];
+  store.sDel(SS_TOKEN_KEY);
+  clearBanner();
+  hide('app');
+  App.showLogin();
+  toast('Anda telah log keluar.', 'info');
+};
+
+/* ---------- Boot & muat data ---------- */
+
+App.boot = async function () {
+  buildCategoryNav();
+  buildColumnPicker();
+  show('app');
+  document.getElementById('app').classList.add('flex');
+  await App.loadData();
+  App.go('dashboard');
+};
+
+App.loadData = async function (silent = false) {
+  if (!silent) showFlex('screen-loading');
+  clearBanner();
+
+  try {
+    document.getElementById('loading-note').textContent = 'Mengambil rekod dari Google Sheet…';
+    const res = await api({ action: 'get_admin_data' });
+
+    const sheetErrors = [];
+    S.byTab = {};
+    S.all = [];
+
+    TABS.forEach(tab => {
+      const rows = (res.tabs && res.tabs[tab.gid]) ? res.tabs[tab.gid] : [];
+      if (res.errors && res.errors[tab.gid]) sheetErrors.push({ tab: tab.name, msg: res.errors[tab.gid] });
+
+      const mapped = rows.map(r => ({
+        raw: r,
+        tabId: tab.id,
+        gid: tab.gid,
+        category: tab.name,
+        date: pick(r, ['Timestamp', 'Tarikh/Masa']),
+        ref: String(pick(r, ['No. Rujukan'])).trim(),
+        name: pick(r, ['Nama Penuh']),
+        phone: String(pick(r, ['No. Telefon'])).replace(/^'/, ''),
+        address: pick(r, ['Alamat']),
+        detail: pick(r, ['Perincian 1', 'Perincian 2']),
+        option: pick(r, ['Pilihan/Kategori']),
+        attach: pick(r, ['Lampiran']),
+        status: normStatus(pick(r, ['STATUS'])),
+        uid: String(pick(r, ['UID'])).trim(),
+        doneDate: pick(r, ['Tarikh Selesai', 'Tarikh Tindakan/Selesai']),
+        report: pick(r, ['Laporan Penyelesaian', 'Laporan Tindakan/Selesai'])
+      }));
+
+      S.byTab[tab.id] = mapped;
+      S.all.push(...mapped);
+    });
+
+    // Profil Firestore — pelengkap sahaja, tak menghalang apa-apa kalau gagal
+    document.getElementById('loading-note').textContent = 'Menyemak profil pengguna…';
+    await loadProfiles();
+
+    // Status sambungan
+    if (sheetErrors.length) {
+      banner(`<div class="flex items-start justify-between gap-4">
+                <div><p class="font-bold mb-1"><i class="fa-solid fa-triangle-exclamation"></i> ${sheetErrors.length} kategori bermasalah di pelayan:</p>
+                <ul class="list-disc list-inside space-y-0.5">${sheetErrors.map(e => `<li><strong>${esc(e.tab)}</strong>: ${esc(e.msg)}</li>`).join('')}</ul></div>
+                <button onclick="App.dismissBanner()" class="underline shrink-0">Tutup</button></div>`, 'warn');
+    } else if (S.all.length === 0) {
+      banner(`<div class="flex items-start justify-between gap-4">
+                <p><i class="fa-solid fa-circle-info"></i> Sambungan berjaya, tetapi <strong>tiada rekod</strong> dalam mana-mana kategori. Jadual masih kosong — belum ada penghantaran borang.</p>
+                <button onclick="App.dismissBanner()" class="underline shrink-0">Tutup</button></div>`, 'warn');
+    }
+
+  } catch (e) {
+    S.all = []; S.byTab = {};
+    banner(`<div class="flex items-start justify-between gap-4">
+              <div><p class="font-bold mb-1"><i class="fa-solid fa-circle-xmark"></i> Gagal memuatkan data — tiada data dipaparkan.</p>
+              <p class="mb-2">${esc(e.message)}</p>
+              <button onclick="App.refresh()" class="px-3 py-1.5 rounded-lg bg-red-600 text-white font-semibold text-[11px]"><i class="fa-solid fa-rotate"></i> Cuba Lagi</button>
+              <button onclick="App.openSetup()" class="px-3 py-1.5 rounded-lg border border-red-300 text-red-700 font-semibold text-[11px] ml-1"><i class="fa-solid fa-gear"></i> Tukar URL</button></div>
+              <button onclick="App.dismissBanner()" class="underline shrink-0">Tutup</button></div>`, 'error');
+
+    if (/sesi|session|log masuk/i.test(e.message)) {
+      S.token = ''; store.sDel(SS_TOKEN_KEY);
+      setTimeout(() => { hide('app'); App.showLogin(); }, 1500);
+    }
+  } finally {
+    if (!silent) hideFlex('screen-loading');
+  }
+};
+
+App.dismissBanner = clearBanner;
+
+async function loadProfiles() {
+  if (!db || !auth || !auth.currentUser) return;
+  const uids = [...new Set(S.all.map(r => r.uid).filter(u => u && u !== 'Guest' && u.length > 10))];
+  if (!uids.length) return;
+
+  await Promise.all(uids.map(async uid => {
+    try {
+      const snap = await getDoc(doc(db, 'users', uid));
+      if (snap.exists()) S.profiles[uid] = snap.data();
+    } catch (e) { /* rules mungkin tak benarkan — abaikan senyap */ }
+  }));
+
+  // Tindih dengan data profil terkini kalau ada
+  S.all.forEach(r => {
+    const p = S.profiles[r.uid];
+    if (!p) return;
+    r.name = p.nama || r.name;
+    r.phone = p.phone || r.phone;
+    r.address = p.address || r.address;
+  });
+}
+
+App.refresh = async function () {
+  const ico = document.getElementById('refresh-ico');
+  ico.classList.add('fa-spin');
+  await App.loadData(true);
+  App.view === 'dashboard' ? App.renderDashboard() : App.renderTable();
+  ico.classList.remove('fa-spin');
+  toast('Data dimuat semula.', 'success');
+};
+
+/* ---------- Navigasi ---------- */
+
+function buildCategoryNav() {
+  document.getElementById('nav-categories').innerHTML = TABS.map(t =>
+    `<button onclick="App.go(${t.id})" data-nav="${t.id}" class="side-link w-full"><i class="fa-solid ${t.icon}"></i> ${esc(t.name)}</button>`
+  ).join('');
+}
+
+App.go = function (view) {
+  S.view = view;
+  document.querySelectorAll('[data-nav]').forEach(el => el.classList.toggle('active', el.dataset.nav === String(view)));
+
+  const title = document.getElementById('page-title');
+  const sub = document.getElementById('page-sub');
+
+  if (view === 'dashboard') {
+    title.textContent = 'Dashboard';
+    sub.textContent = 'Pemantauan & pengurusan data terpusat';
+    show('view-dashboard'); hide('view-table');
+    App.renderDashboard();
+  } else {
+    if (view === 'all') {
+      title.textContent = 'Semua Rekod';
+      sub.textContent = `${S.all.length} rekod dari semua kategori`;
+    } else {
+      const t = TABS.find(x => x.id === view);
+      title.textContent = t.name;
+      sub.textContent = `Senarai rekod kategori ${t.name}`;
+    }
+    hide('view-dashboard'); show('view-table');
+    App.renderTable();
+  }
+
+  if (window.innerWidth < 1024) {
+    const sb = document.getElementById('sidebar');
+    if (!sb.classList.contains('-translate-x-full')) App.toggleSidebar();
+  }
+};
+
+App.toggleSidebar = function () {
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('backdrop');
+  const closed = sb.classList.contains('-translate-x-full');
+  sb.classList.toggle('-translate-x-full', !closed);
+  bd.classList.toggle('hidden', closed ? false : true);
+};
+
+/* ---------- Dashboard ---------- */
+
+App.resetDashFilter = function () {
+  document.getElementById('dash-from').value = '';
+  document.getElementById('dash-to').value = '';
+  App.renderDashboard();
+};
+
+function dateRangeFilter(rows, fromId, toId) {
+  const fromV = document.getElementById(fromId)?.value;
+  const toV = document.getElementById(toId)?.value;
+  if (!fromV && !toV) return rows;
+  const from = fromV ? new Date(fromV) : null;
+  const to = toV ? new Date(toV) : null;
+  if (to) to.setHours(23, 59, 59, 999);
+  return rows.filter(r => {
+    const d = parseDate(r.date);
+    if (!d) return false;
+    if (from && d < from) return false;
+    if (to && d > to) return false;
+    return true;
+  });
+}
+
+App.renderDashboard = function () {
+  const rows = dateRangeFilter(S.all, 'dash-from', 'dash-to');
+  const count = (st) => rows.filter(r => r.status === st).length;
+
+  document.getElementById('stat-total').textContent = rows.length;
+  document.getElementById('stat-selesai').textContent = count('TELAH SELESAI');
+  document.getElementById('stat-proses').textContent = count('SEDANG DI PROSES');
+  document.getElementById('stat-semakan').textContent = count('DALAM SEMAKAN');
+
+  const per = (st) => TABS.map(t => rows.filter(r => r.tabId === t.id && r.status === st).length);
+
+  if (S.charts.cat) S.charts.cat.destroy();
+  S.charts.cat = new Chart(document.getElementById('chart-cat'), {
+    type: 'bar',
+    data: {
+      labels: TABS.map(t => t.name),
+      datasets: [
+        { label: 'Dalam Semakan',   data: per('DALAM SEMAKAN'),   backgroundColor: '#1A4A9A', borderRadius: 6 },
+        { label: 'Sedang Diproses', data: per('SEDANG DI PROSES'), backgroundColor: '#F59E0B', borderRadius: 6 },
+        { label: 'Telah Selesai',   data: per('TELAH SELESAI'),    backgroundColor: '#10B981', borderRadius: 6 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8, font: { size: 11 } } } },
+      scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, beginAtZero: true, grid: { color: '#F1F5F9' } } }
+    }
+  });
+
+  if (S.charts.status) S.charts.status.destroy();
+  S.charts.status = new Chart(document.getElementById('chart-status'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Telah Selesai', 'Sedang Diproses', 'Dalam Semakan'],
+      datasets: [{ data: [count('TELAH SELESAI'), count('SEDANG DI PROSES'), count('DALAM SEMAKAN')],
+                   backgroundColor: ['#10B981', '#F59E0B', '#1A4A9A'], borderWidth: 0 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '68%',
+               plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, font: { size: 11 } } } } }
+  });
+};
+
+/* ---------- Jadual ---------- */
+
+function buildColumnPicker() {
+  document.getElementById('col-list').innerHTML = COLUMNS.map(c => `
+    <label class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+      <input type="checkbox" ${S.cols[c.key] ? 'checked' : ''} onchange="App.toggleCol('${c.key}')" class="accent-brand">
+      <span class="text-xs text-slate-700">${esc(c.label)}</span>
+    </label>`).join('');
+}
+
+App.toggleCol = function (key) { S.cols[key] = !S.cols[key]; App.renderTable(); };
+
+App.toggleColMenu = function (ev) {
+  ev.stopPropagation();
+  document.getElementById('col-menu').classList.toggle('hidden');
+};
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('col-menu');
+  if (menu && !menu.contains(e.target)) menu.classList.add('hidden');
+});
+
+App.resetFilters = function () {
+  ['f-search', 'f-status', 'f-from', 'f-to'].forEach(id => document.getElementById(id).value = '');
+  App.renderTable();
+};
+
+App.renderTable = function () {
+  let rows = S.view === 'all' ? S.all : (S.byTab[S.view] || []);
+
+  const q = document.getElementById('f-search').value.trim().toLowerCase();
+  const st = document.getElementById('f-status').value;
+
+  rows = dateRangeFilter(rows, 'f-from', 'f-to');
+  if (st) rows = rows.filter(r => r.status === st);
+  if (q) rows = rows.filter(r => [r.ref, r.name, r.phone, r.address, r.detail, r.option, r.category].join(' ').toLowerCase().includes(q));
+
+  S.filtered = rows;
+
+  const c = S.cols;
+  const th = (label, extra = '') => `<th class="px-4 py-3 whitespace-nowrap ${extra}">${label}</th>`;
+  document.getElementById('thead-row').innerHTML =
+    (c.date ? th('Tarikh') : '') + (c.category ? th('Kategori') : '') + (c.ref ? th('No. Rujukan') : '') +
+    (c.name ? th('Nama Pemohon') : '') + (c.address ? th('Alamat') : '') + (c.phone ? th('No. Telefon') : '') +
+    (c.detail ? th('Perincian') : '') + (c.attach ? th('Lampiran', 'text-center') : '') +
+    (c.status ? th('Status', 'text-center') : '') + (c.action ? th('Tindakan', 'text-center') : '') +
+    (c.donedate ? th('Tarikh Selesai', 'bg-emerald-50/70') : '') + (c.report ? th('Laporan', 'bg-emerald-50/70 text-center') : '');
+
+  const tbody = document.getElementById('tbody');
+  document.getElementById('table-count').textContent = `${rows.length} rekod`;
+
+  if (!rows.length) {
+    const span = Object.values(c).filter(Boolean).length || 1;
+    tbody.innerHTML = `<tr><td colspan="${span}" class="px-4 py-16 text-center">
+        <i class="fa-regular fa-folder-open text-3xl text-slate-300 mb-3 block"></i>
+        <p class="text-sm font-semibold text-slate-500">Tiada rekod dijumpai</p>
+        <p class="text-xs text-slate-400 mt-1">Cuba laraskan penapis, atau muat semula data.</p></td></tr>`;
+    return;
+  }
+
+  const pillClass = (s) => s === 'TELAH SELESAI' ? 'pill-selesai' : (s === 'SEDANG DI PROSES' ? 'pill-proses' : 'pill-semakan');
+
+  tbody.innerHTML = rows.map(r => {
+    const link = (url, label, cls) => {
+      const first = String(url).split(',')[0].trim();
+      if (!first || first.length < 6) return '<span class="text-slate-300">—</span>';
+      return `<a href="${esc(first)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold ${cls} transition"><i class="fa-solid fa-arrow-up-right-from-square"></i> ${label}</a>`;
+    };
+
+    let tr = '<tr class="hover:bg-slate-50 transition">';
+    if (c.date)     tr += `<td class="px-4 py-3 whitespace-nowrap text-xs text-slate-500 font-mono">${esc(String(r.date).split(' ')[0] || '—')}</td>`;
+    if (c.category) tr += `<td class="px-4 py-3"><span class="pill bg-blue-50 text-brand">${esc(r.category)}</span></td>`;
+    if (c.ref)      tr += `<td class="px-4 py-3 font-mono text-xs text-slate-600">${esc(r.ref || '—')}</td>`;
+    if (c.name)     tr += `<td class="px-4 py-3 font-semibold text-sm">${esc(r.name || 'Tanpa Nama')}</td>`;
+    if (c.address)  tr += `<td class="px-4 py-3 text-xs text-slate-600 max-w-[180px] truncate" title="${esc(r.address)}">${esc(r.address || '—')}</td>`;
+    if (c.phone)    tr += `<td class="px-4 py-3 text-xs text-slate-600 font-mono whitespace-nowrap">${esc(r.phone || '—')}</td>`;
+    if (c.detail)   tr += `<td class="px-4 py-3 text-xs text-slate-500 max-w-[260px] truncate" title="${esc(r.detail)}">${esc(r.detail || '—')}</td>`;
+    if (c.attach)   tr += `<td class="px-4 py-3 text-center">${link(r.attach, 'Lihat', 'bg-slate-100 text-slate-700 hover:bg-slate-200')}</td>`;
+    if (c.status)   tr += `<td class="px-4 py-3 text-center"><span class="pill ${pillClass(r.status)}">${esc(r.status)}</span></td>`;
+    if (c.action)   tr += `<td class="px-4 py-3 text-center"><button onclick="App.openEdit('${esc(r.ref)}','${esc(r.gid)}')" class="w-8 h-8 rounded-lg text-brand hover:bg-blue-50 transition" title="Kemas kini tindakan"><i class="fa-solid fa-pen-to-square"></i></button></td>`;
+    if (c.donedate) tr += `<td class="px-4 py-3 text-xs text-slate-500 font-mono whitespace-nowrap bg-emerald-50/30">${esc(String(r.doneDate).split(' ')[0] || '—')}</td>`;
+    if (c.report)   tr += `<td class="px-4 py-3 text-center bg-emerald-50/30">${link(r.report, 'Laporan', 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200')}</td>`;
+    return tr + '</tr>';
+  }).join('');
+};
+
+/* ---------- Modal edit / tindakan ---------- */
+
+App.openEdit = function (ref, gid) {
+  const rec = S.all.find(r => r.ref === ref && String(r.gid) === String(gid));
+  if (!rec) return toast('Rekod tidak dijumpai.', 'error');
+
+  document.getElementById('edit-ref').value = ref;
+  document.getElementById('edit-gid').value = gid;
+  document.getElementById('edit-ref-show').value = ref;
+  document.getElementById('edit-name-show').value = rec.name || 'Tanpa Nama';
+  document.getElementById('edit-status').value = rec.status;
+  document.getElementById('up-file').value = '';
+  document.getElementById('build-summary').value = '';
+  document.getElementById('build-images').value = '';
+
+  App.onStatusChange();
+  showFlex('modal-edit');
+};
+
+App.closeModal = (id) => hideFlex(id);
+
+App.onStatusChange = function () {
+  const st = document.getElementById('edit-status').value;
+  const box = document.getElementById('report-box');
+  const label = document.getElementById('report-label');
+  if (st === 'TELAH SELESAI' || st === 'SEDANG DI PROSES') {
+    box.classList.remove('hidden');
+    label.textContent = st === 'TELAH SELESAI' ? 'Laporan Penyelesaian Akhir' : 'Laporan Tindakan (Dalam Proses)';
+  } else {
+    box.classList.add('hidden');
+  }
+};
+
+App.onMethodChange = function () {
+  const m = document.querySelector('input[name="rmethod"]:checked').value;
+  document.getElementById('method-upload').classList.toggle('hidden', m !== 'upload');
+  document.getElementById('method-build').classList.toggle('hidden', m !== 'build');
+};
+
+App.saveStatus = async function () {
+  const ref = document.getElementById('edit-ref').value;
+  const gid = document.getElementById('edit-gid').value;
+  const status = document.getElementById('edit-status').value;
+  const btn = document.getElementById('save-btn');
+  const original = btn.innerHTML;
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan…';
+
+  try {
+    let payload;
+
+    if (status === 'DALAM SEMAKAN') {
+      payload = { action: 'update_status', refNo: ref, tabId: gid, newStatus: status };
+    } else {
+      const method = document.querySelector('input[name="rmethod"]:checked').value;
+      payload = { action: 'complete_ticket', refNo: ref, tabId: gid, newStatus: status, reportMethod: method };
+
+      if (method === 'upload') {
+        const f = document.getElementById('up-file').files[0];
+        if (f) payload.fileData = await fileToB64(f);
+      } else {
+        const summary = document.getElementById('build-summary').value.trim();
+        if (!summary) throw new Error('Sila masukkan ringkasan tindakan.');
+        payload.summary = summary;
+        payload.images = [];
+        const imgs = document.getElementById('build-images').files;
+        for (let i = 0; i < Math.min(imgs.length, 3); i++) payload.images.push(await fileToB64(imgs[i]));
+      }
+    }
+
+    const res = await api(payload);
+
+    // Kemas kini state tempatan supaya jadual terus reflect tanpa reload penuh
+    S.all.filter(r => r.ref === ref && String(r.gid) === String(gid)).forEach(r => {
+      r.status = normStatus(status);
+      if (res.completedDate) r.doneDate = res.completedDate;
+      if (res.reportLink) r.report = res.reportLink;
+    });
+
+    App.closeModal('modal-edit');
+    toast(res.message || 'Tindakan berjaya dikemas kini.', 'success');
+    S.view === 'dashboard' ? App.renderDashboard() : App.renderTable();
+
+  } catch (e) {
+    toast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
+};
+
+/* ---------- Eksport Excel ---------- */
+
+App.exportExcel = function () {
+  const rows = S.filtered.length ? S.filtered : (S.view === 'all' ? S.all : (S.byTab[S.view] || []));
+  if (!rows.length) return toast('Tiada data untuk dimuat turun.', 'error');
+
+  const data = rows.map(r => ({
+    'Tarikh': r.date, 'Kategori': r.category, 'No. Rujukan': r.ref, 'Nama Pemohon': r.name,
+    'Alamat': r.address, 'No. Telefon': r.phone, 'Pilihan/Kategori': r.option, 'Perincian': r.detail,
+    'Lampiran': r.attach, 'Status': r.status, 'Tarikh Selesai': r.doneDate, 'Laporan': r.report
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  const label = S.view === 'all' ? 'Semua Rekod' : (TABS.find(t => t.id === S.view)?.name || 'Rekod');
+  XLSX.utils.book_append_sheet(wb, ws, label.substring(0, 30));
+  XLSX.writeFile(wb, `KARA-Di_${label.replace(/\W+/g, '_')}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  toast(`${rows.length} rekod dieksport.`, 'success');
+};
+
+/* ---------- Laporan PDF ---------- */
+
+App.buildReport = function () {
+  const isDash = S.view === 'dashboard';
+  const rows = isDash ? dateRangeFilter(S.all, 'dash-from', 'dash-to') : S.filtered;
+
+  if (!rows.length) return toast('Tiada data untuk dijana laporan.', 'error');
+
+  const count = (st) => rows.filter(r => r.status === st).length;
+  const title = isDash ? 'Laporan Keseluruhan' : (S.view === 'all' ? 'Laporan Semua Rekod' : `Laporan ${TABS.find(t => t.id === S.view)?.name}`);
+  const today = new Date().toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const stat = (label, val, color) => `
+    <div style="flex:1;border:1px solid #E2E8F0;border-radius:8px;padding:12px;">
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#64748B;font-weight:700;margin-bottom:4px;">${label}</div>
+      <div style="font-size:22px;font-weight:800;color:${color};">${val}</div>
+    </div>`;
+
+  const tableRows = rows.slice(0, 40).map(r => `
+    <tr>
+      <td style="padding:7px;border-bottom:1px solid #F1F5F9;font-size:9px;font-family:monospace;">${esc(String(r.date).split(' ')[0])}</td>
+      <td style="padding:7px;border-bottom:1px solid #F1F5F9;font-size:9px;font-family:monospace;">${esc(r.ref)}</td>
+      <td style="padding:7px;border-bottom:1px solid #F1F5F9;font-size:9px;">${esc(r.category)}</td>
+      <td style="padding:7px;border-bottom:1px solid #F1F5F9;font-size:9px;font-weight:600;">${esc(r.name)}</td>
+      <td style="padding:7px;border-bottom:1px solid #F1F5F9;font-size:9px;">${esc(r.status)}</td>
+    </tr>`).join('');
+
+  const chartImg = (isDash && S.charts.cat) ? S.charts.cat.canvas.toDataURL('image/png', 1.0) : '';
+
+  document.getElementById('pdf-body').innerHTML = `
+    <div class="a4">
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #1A4A9A;padding-bottom:14px;margin-bottom:22px;">
+        <img src="https://i.postimg.cc/MptXDDPS/karadi.png" style="height:56px;">
+        <div style="text-align:right;">
+          <h1 style="margin:0;font-size:17px;font-weight:800;color:#12275B;text-transform:uppercase;letter-spacing:.5px;">${esc(title)}</h1>
+          <p style="margin:4px 0 0;font-size:10px;color:#64748B;">Pusat Khidmat Rakyat · Karambunai N16</p>
+          <p style="margin:2px 0 0;font-size:10px;color:#64748B;">Tarikh: ${today}</p>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-bottom:20px;">
+        ${stat('Jumlah', rows.length, '#0F172A')}
+        ${stat('Selesai', count('TELAH SELESAI'), '#10B981')}
+        ${stat('Diproses', count('SEDANG DI PROSES'), '#F59E0B')}
+        ${stat('Semakan', count('DALAM SEMAKAN'), '#1A4A9A')}
+      </div>
+
+      ${chartImg ? `<div style="border:1px solid #E2E8F0;border-radius:8px;padding:14px;margin-bottom:20px;">
+        <p style="margin:0 0 10px;font-size:11px;font-weight:700;text-transform:uppercase;color:#334155;">Rekod Mengikut Kategori</p>
+        <img src="${chartImg}" style="width:100%;height:auto;">
+      </div>` : ''}
+
+      <p style="margin:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;color:#334155;">
+        Senarai Rekod ${rows.length > 40 ? '(40 pertama)' : ''}
+      </p>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:#F1F5F9;">
+          <th style="padding:7px;text-align:left;font-size:9px;text-transform:uppercase;color:#475569;">Tarikh</th>
+          <th style="padding:7px;text-align:left;font-size:9px;text-transform:uppercase;color:#475569;">Rujukan</th>
+          <th style="padding:7px;text-align:left;font-size:9px;text-transform:uppercase;color:#475569;">Kategori</th>
+          <th style="padding:7px;text-align:left;font-size:9px;text-transform:uppercase;color:#475569;">Nama</th>
+          <th style="padding:7px;text-align:left;font-size:9px;text-transform:uppercase;color:#475569;">Status</th>
+        </tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>
+
+      <div style="margin-top:auto;padding-top:14px;border-top:1px solid #E2E8F0;text-align:center;font-size:9px;color:#94A3B8;">
+        Dijana automatik oleh Sistem KARA-Di · ${today}
+      </div>
+    </div>`;
+
+  showFlex('modal-pdf');
+};
+
+App.downloadPdf = function () {
+  const el = document.getElementById('pdf-body');
+  html2pdf().set({
+    margin: 0,
+    filename: `KARA-Di_Laporan_${new Date().toISOString().slice(0, 10)}.pdf`,
+    image: { type: 'jpeg', quality: .98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  }).from(el).save().then(() => App.closeModal('modal-pdf'));
+};
+
+/* ═══════════════════════════ MULA ═══════════════════════════ */
+
+(function start() {
+  if (!S.url) { App.openSetup(); return; }
+  App.showLogin();
+})();
+</script>
 </body>
 </html>
