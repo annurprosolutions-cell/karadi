@@ -136,9 +136,73 @@ tailwind.config = {
         <div id="login-msg" class="hidden mt-4 text-xs rounded-xl px-4 py-3 border bg-red-50 border-red-200 text-red-700"></div>
       </form>
 
-      <button onclick="App.openSetup()" class="w-full text-center text-[11px] text-slate-400 hover:text-brand mt-6 transition">
+      <button onclick="App.openForgot()" class="w-full text-center text-xs font-semibold text-brand hover:text-navy mt-5 transition">
+        Lupa kata laluan?
+      </button>
+
+      <button id="btn-change-url" onclick="App.openSetup()" class="w-full text-center text-[11px] text-slate-400 hover:text-brand mt-4 transition">
         <i class="fa-solid fa-gear"></i> Tukar URL Apps Script
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════════════ SKRIN 2b: LUPA KATA LALUAN ══════════════════════════ -->
+<div id="screen-forgot" class="fixed inset-0 z-[8500] hidden items-center justify-center p-4 bg-gradient-to-br from-slate-100 via-white to-blue-50">
+  <div class="bg-white w-full max-w-sm rounded-2xl shadow-2xl border border-slate-200 overflow-hidden fade-in">
+    <div class="h-1.5 bg-gradient-to-r from-amber-400 to-brand"></div>
+    <div class="p-8">
+      <div class="text-center mb-6">
+        <div class="w-14 h-14 rounded-2xl bg-amber-50 text-amber-500 grid place-items-center mx-auto mb-3">
+          <i class="fa-solid fa-key text-xl"></i>
+        </div>
+        <h1 class="text-lg font-extrabold text-navy">Set Semula Kata Laluan</h1>
+        <p class="text-xs text-slate-500 mt-1">Kod pengesahan dihantar ke emel admin</p>
+      </div>
+
+      <!-- Langkah 1: minta kod -->
+      <div id="forgot-step1">
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Emel Admin</label>
+        <div class="relative mb-5">
+          <i class="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+          <input id="forgot-email" type="email" placeholder="emel admin berdaftar"
+                 class="w-full pl-11 pr-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-brand outline-none transition">
+        </div>
+        <button onclick="App.requestCode()" id="forgot-btn1"
+                class="w-full bg-brand hover:bg-navy text-white font-bold py-3 rounded-xl transition shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 text-sm">
+          <i class="fa-solid fa-paper-plane"></i> Hantar Kod ke Emel
+        </button>
+      </div>
+
+      <!-- Langkah 2: masukkan kod + kata laluan baharu -->
+      <div id="forgot-step2" class="hidden">
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Kod 6-Digit</label>
+        <input id="forgot-code" inputmode="numeric" maxlength="6" placeholder="000000"
+               class="w-full px-4 py-3 border border-slate-300 rounded-xl text-center text-2xl font-mono tracking-[0.4em] focus:ring-2 focus:ring-brand focus:border-brand outline-none transition mb-4">
+
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Kata Laluan Baharu</label>
+        <input id="forgot-pw1" type="password" placeholder="minimum 10 aksara"
+               class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-brand outline-none transition mb-3">
+
+        <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Sahkan Kata Laluan</label>
+        <input id="forgot-pw2" type="password" placeholder="ulang kata laluan baharu"
+               class="w-full px-4 py-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-brand focus:border-brand outline-none transition mb-5">
+
+        <button onclick="App.submitReset()" id="forgot-btn2"
+                class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2 text-sm">
+          <i class="fa-solid fa-check"></i> Tetapkan Kata Laluan
+        </button>
+      </div>
+
+      <div id="forgot-msg" class="hidden mt-4 text-xs rounded-xl px-4 py-3 border"></div>
+
+      <button onclick="App.showLogin()" class="w-full text-center text-[11px] text-slate-400 hover:text-brand mt-6 transition">
+        <i class="fa-solid fa-arrow-left"></i> Kembali ke log masuk
+      </button>
+
+      <p class="text-[10px] text-slate-400 mt-4 text-center leading-relaxed">
+        Tak dapat emel? Buka Google Sheet → menu <strong>⚙️ KARA-Di</strong> → <em>Tetapkan Kata Laluan Admin</em>.
+      </p>
     </div>
   </div>
 </div>
@@ -410,6 +474,15 @@ import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11
 
 /* ═══════════════════════════ KONFIGURASI ═══════════════════════════ */
 
+/* ┌───────────────────────────────────────────────────────────────────────┐
+   │  URL APPS SCRIPT — LETAK DI SINI                                      │
+   │  Tampal URL Web App (/exec) antara tanda petik di bawah.              │
+   │  Bila diisi, skrin setup DILANGKAU — terus ke skrin log masuk.        │
+   │  Biarkan kosong ("") kalau nak sistem tanya URL masa mula-mula buka.  │
+   │  Cara dapat URL: Google Sheet > menu ⚙️ KARA-Di > Papar URL Web App   │
+   └───────────────────────────────────────────────────────────────────────┘ */
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzZMYCudqBt4HenOIza1QrCXATyfevgyrYMJQ989eaFUXV6Bc1paMmJ2gANvpZ5433H/exec";
+
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyAH_P1CHHVBIXRGE0zkElJVyMO2LRbb93Y",
   authDomain: "kara-di.firebaseapp.com",
@@ -445,7 +518,7 @@ const COLUMNS = [
   { key: 'report',    label: 'Laporan' }
 ];
 
-const LS_URL_KEY = 'https://script.google.com/macros/s/AKfycbx9CofohnQ_LDy4x08MPr8owVM3wTJUx3q6DkILT_hnUx1-OXjRwBldNPOY0Wnz5OYh/exec';
+const LS_URL_KEY = 'karadi_appsscript_url';
 const SS_TOKEN_KEY = 'karadi_session_token';
 
 /* ═══════════════════════════ STORAN SELAMAT ═══════════════════════════ */
@@ -462,8 +535,16 @@ const mem = {};
 
 /* ═══════════════════════════ STATE ═══════════════════════════ */
 
+// No. KP sengaja TIDAK dipapar secara lalai (PDPA) — admin boleh hidupkan
+// sementara melalui menu "Lajur" bila memang perlu untuk pemprosesan.
+COLUMNS.splice(6, 0, { key: 'ic', label: 'No. KP', sensitive: true });
+
 const S = {
-  url: store.get(LS_URL_KEY) || '',
+  // URL hardcoded di atas ambil keutamaan; kalau kosong, guna yang disimpan
+  // dari skrin setup.
+  url: APPS_SCRIPT_URL || store.get(LS_URL_KEY) || '',
+  urlLocked: !!APPS_SCRIPT_URL,
+  profileWarning: '',
   token: store.sGet(SS_TOKEN_KEY) || '',
   email: '',
   byTab: {},          // { tabId: [rows] }
@@ -471,7 +552,7 @@ const S = {
   filtered: [],       // hasil tapisan semasa
   profiles: {},       // uid -> profil Firestore
   view: 'dashboard',
-  cols: COLUMNS.reduce((a, c) => (a[c.key] = true, a), {}),
+  cols: COLUMNS.reduce((a, c) => (a[c.key] = !c.sensitive, a), {}),
   charts: { cat: null, status: null }
 };
 
@@ -595,9 +676,13 @@ window.App = App;
 /* ---------- Setup URL ---------- */
 
 App.openSetup = function () {
+  if (S.urlLocked) {
+    toast('URL Apps Script telah ditetapkan dalam kod (APPS_SCRIPT_URL). Edit fail HTML untuk menukarnya.', 'info');
+    return;
+  }
   document.getElementById('setup-url').value = S.url || '';
   document.getElementById('setup-msg').classList.add('hidden');
-  hide('app'); hideFlex('screen-login'); hideFlex('screen-loading');
+  hide('app'); hideFlex('screen-login'); hideFlex('screen-loading'); hideFlex('screen-forgot');
   showFlex('screen-setup');
 };
 
@@ -644,9 +729,81 @@ App.testAndSaveUrl = async function () {
 /* ---------- Login ---------- */
 
 App.showLogin = function () {
-  hide('app'); hideFlex('screen-setup'); hideFlex('screen-loading');
+  hide('app'); hideFlex('screen-setup'); hideFlex('screen-loading'); hideFlex('screen-forgot');
   showFlex('screen-login');
   document.getElementById('login-msg').classList.add('hidden');
+  // Kalau URL dihardcode dalam kod, sembunyikan butang tukar URL
+  const btn = document.getElementById('btn-change-url');
+  if (btn) btn.classList.toggle('hidden', S.urlLocked);
+};
+
+/* ---------- Lupa kata laluan ---------- */
+
+function forgotMsg(text, level) {
+  const el = document.getElementById('forgot-msg');
+  const styles = {
+    error: 'bg-red-50 border-red-200 text-red-700',
+    ok:    'bg-emerald-50 border-emerald-200 text-emerald-700',
+    info:  'bg-blue-50 border-blue-200 text-blue-700'
+  };
+  el.className = `mt-4 text-xs rounded-xl px-4 py-3 border ${styles[level]}`;
+  el.innerHTML = text;
+}
+
+App.openForgot = function () {
+  hideFlex('screen-login');
+  showFlex('screen-forgot');
+  show('forgot-step1'); hide('forgot-step2');
+  document.getElementById('forgot-msg').classList.add('hidden');
+  ['forgot-email', 'forgot-code', 'forgot-pw1', 'forgot-pw2'].forEach(id => document.getElementById(id).value = '');
+};
+
+App.requestCode = async function () {
+  const email = document.getElementById('forgot-email').value.trim();
+  const btn = document.getElementById('forgot-btn1');
+  if (!email) return forgotMsg('Sila masukkan emel admin.', 'error');
+
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menghantar…';
+
+  try {
+    const res = await api({ action: 'forgot_password', email }, { auth: false });
+    forgotMsg(res.message + (res.sentTo ? `<br><strong>${esc(res.sentTo)}</strong>` : ''), 'ok');
+    hide('forgot-step1'); show('forgot-step2');
+    document.getElementById('forgot-code').focus();
+  } catch (e) {
+    forgotMsg(esc(e.message), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
+};
+
+App.submitReset = async function () {
+  const code = document.getElementById('forgot-code').value.trim();
+  const pw1 = document.getElementById('forgot-pw1').value;
+  const pw2 = document.getElementById('forgot-pw2').value;
+  const btn = document.getElementById('forgot-btn2');
+
+  if (!code) return forgotMsg('Sila masukkan kod 6-digit dari emel.', 'error');
+  if (pw1.length < 10) return forgotMsg('Kata laluan baharu mesti sekurang-kurangnya 10 aksara.', 'error');
+  if (pw1 !== pw2) return forgotMsg('Kata laluan tidak sepadan.', 'error');
+
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menetapkan…';
+
+  try {
+    const res = await api({ action: 'reset_password', code, newPassword: pw1 }, { auth: false });
+    forgotMsg(esc(res.message), 'ok');
+    setTimeout(() => { App.showLogin(); toast('Kata laluan berjaya ditukar. Sila log masuk.', 'success'); }, 1600);
+  } catch (e) {
+    forgotMsg(esc(e.message), 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
 };
 
 App.login = async function () {
@@ -745,6 +902,9 @@ App.loadData = async function (silent = false) {
         attach: pick(r, ['Lampiran']),
         status: normStatus(pick(r, ['STATUS'])),
         uid: String(pick(r, ['UID'])).trim(),
+        // IC: dari lajur sheet kalau ada; kalau tiada, cuba dari profil
+        // Firestore (ikut UID) dalam loadProfiles() di bawah.
+        ic: String(pick(r, ['No. KP', 'IC', 'No. IC'])).replace(/^'/, ''),
         doneDate: pick(r, ['Tarikh Selesai', 'Tarikh Tindakan/Selesai']),
         report: pick(r, ['Laporan Penyelesaian', 'Laporan Tindakan/Selesai'])
       }));
@@ -755,10 +915,15 @@ App.loadData = async function (silent = false) {
 
     // Profil Firestore — pelengkap sahaja, tak menghalang apa-apa kalau gagal
     document.getElementById('loading-note').textContent = 'Menyemak profil pengguna…';
+    S.profileWarning = '';
     await loadProfiles();
 
     // Status sambungan
-    if (sheetErrors.length) {
+    if (S.profileWarning) {
+      banner(`<div class="flex items-start justify-between gap-4">
+                <p><i class="fa-solid fa-circle-info"></i> ${esc(S.profileWarning)}</p>
+                <button onclick="App.dismissBanner()" class="underline shrink-0">Tutup</button></div>`, 'warn');
+    } else if (sheetErrors.length) {
       banner(`<div class="flex items-start justify-between gap-4">
                 <div><p class="font-bold mb-1"><i class="fa-solid fa-triangle-exclamation"></i> ${sheetErrors.length} kategori bermasalah di pelayan:</p>
                 <ul class="list-disc list-inside space-y-0.5">${sheetErrors.map(e => `<li><strong>${esc(e.tab)}</strong>: ${esc(e.msg)}</li>`).join('')}</ul></div>
@@ -790,16 +955,28 @@ App.loadData = async function (silent = false) {
 App.dismissBanner = clearBanner;
 
 async function loadProfiles() {
-  if (!db || !auth || !auth.currentUser) return;
   const uids = [...new Set(S.all.map(r => r.uid).filter(u => u && u !== 'Guest' && u.length > 10))];
   if (!uids.length) return;
 
+  // Firestore perlukan sesi Firebase. Kalau tiada (kata laluan Firebase berbeza
+  // dari kata laluan Apps Script), kita beritahu terus — sebab tanpa ni, No. KP
+  // untuk rekod LAMA tak dapat ditarik.
+  if (!db || !auth || !auth.currentUser) {
+    S.profileWarning = 'Profil Firestore tidak dimuat (sesi Firebase tiada) — No. KP untuk rekod lama tidak tersedia. Pastikan kata laluan Firebase sama dengan kata laluan admin, atau tambah lajur "No. KP" pada sheet untuk rekod baharu.';
+    return;
+  }
+
+  let failed = 0;
   await Promise.all(uids.map(async uid => {
     try {
       const snap = await getDoc(doc(db, 'users', uid));
       if (snap.exists()) S.profiles[uid] = snap.data();
-    } catch (e) { /* rules mungkin tak benarkan — abaikan senyap */ }
+    } catch (e) { failed++; }
   }));
+
+  if (failed === uids.length && uids.length > 0) {
+    S.profileWarning = 'Firestore menolak semua bacaan profil (semak Security Rules) — No. KP untuk rekod lama tidak tersedia.';
+  }
 
   // Tindih dengan data profil terkini kalau ada
   S.all.forEach(r => {
@@ -808,6 +985,8 @@ async function loadProfiles() {
     r.name = p.nama || r.name;
     r.phone = p.phone || r.phone;
     r.address = p.address || r.address;
+    // No. KP dari Firestore — hanya kalau sheet tak simpan sendiri
+    if (!r.ic) r.ic = String(p.ic || p.icNumber || p.noKp || '').trim();
   });
 }
 
@@ -975,7 +1154,8 @@ App.renderTable = function () {
   const th = (label, extra = '') => `<th class="px-4 py-3 whitespace-nowrap ${extra}">${label}</th>`;
   document.getElementById('thead-row').innerHTML =
     (c.date ? th('Tarikh') : '') + (c.category ? th('Kategori') : '') + (c.ref ? th('No. Rujukan') : '') +
-    (c.name ? th('Nama Pemohon') : '') + (c.address ? th('Alamat') : '') + (c.phone ? th('No. Telefon') : '') +
+    (c.name ? th('Nama Pemohon') : '') + (c.ic ? th('No. KP', 'bg-amber-50/70') : '') +
+    (c.address ? th('Alamat') : '') + (c.phone ? th('No. Telefon') : '') +
     (c.detail ? th('Perincian') : '') + (c.attach ? th('Lampiran', 'text-center') : '') +
     (c.status ? th('Status', 'text-center') : '') + (c.action ? th('Tindakan', 'text-center') : '') +
     (c.donedate ? th('Tarikh Selesai', 'bg-emerald-50/70') : '') + (c.report ? th('Laporan', 'bg-emerald-50/70 text-center') : '');
@@ -1006,6 +1186,7 @@ App.renderTable = function () {
     if (c.category) tr += `<td class="px-4 py-3"><span class="pill bg-blue-50 text-brand">${esc(r.category)}</span></td>`;
     if (c.ref)      tr += `<td class="px-4 py-3 font-mono text-xs text-slate-600">${esc(r.ref || '—')}</td>`;
     if (c.name)     tr += `<td class="px-4 py-3 font-semibold text-sm">${esc(r.name || 'Tanpa Nama')}</td>`;
+    if (c.ic)       tr += `<td class="px-4 py-3 text-xs font-mono text-slate-700 whitespace-nowrap bg-amber-50/30">${esc(r.ic || '—')}</td>`;
     if (c.address)  tr += `<td class="px-4 py-3 text-xs text-slate-600 max-w-[180px] truncate" title="${esc(r.address)}">${esc(r.address || '—')}</td>`;
     if (c.phone)    tr += `<td class="px-4 py-3 text-xs text-slate-600 font-mono whitespace-nowrap">${esc(r.phone || '—')}</td>`;
     if (c.detail)   tr += `<td class="px-4 py-3 text-xs text-slate-500 max-w-[260px] truncate" title="${esc(r.detail)}">${esc(r.detail || '—')}</td>`;
@@ -1116,11 +1297,28 @@ App.exportExcel = function () {
   const rows = S.filtered.length ? S.filtered : (S.view === 'all' ? S.all : (S.byTab[S.view] || []));
   if (!rows.length) return toast('Tiada data untuk dimuat turun.', 'error');
 
-  const data = rows.map(r => ({
-    'Tarikh': r.date, 'Kategori': r.category, 'No. Rujukan': r.ref, 'Nama Pemohon': r.name,
-    'Alamat': r.address, 'No. Telefon': r.phone, 'Pilihan/Kategori': r.option, 'Perincian': r.detail,
-    'Lampiran': r.attach, 'Status': r.status, 'Tarikh Selesai': r.doneDate, 'Laporan': r.report
-  }));
+  // No. KP ialah data peribadi sensitif (PDPA) — kena sahkan setiap kali,
+  // tak dimasukkan secara senyap.
+  const adaIc = rows.some(r => r.ic);
+  let sertakanIc = false;
+  if (adaIc) {
+    sertakanIc = confirm(
+      'Sertakan No. KP dalam fail Excel ini?\n\n' +
+      'No. KP ialah data peribadi sensitif di bawah PDPA. Fail yang mengandunginya ' +
+      'perlu disimpan dengan selamat dan tidak dikongsi sesuka hati.\n\n' +
+      'OK = sertakan No. KP    ·    Batal = tanpa No. KP'
+    );
+  }
+
+  const data = rows.map(r => {
+    const row = {
+      'Tarikh': r.date, 'Kategori': r.category, 'No. Rujukan': r.ref, 'Nama Pemohon': r.name,
+      'Alamat': r.address, 'No. Telefon': r.phone, 'Pilihan/Kategori': r.option, 'Perincian': r.detail,
+      'Lampiran': r.attach, 'Status': r.status, 'Tarikh Selesai': r.doneDate, 'Laporan': r.report
+    };
+    if (sertakanIc) row['No. KP'] = r.ic || '';
+    return row;
+  });
 
   const ws = XLSX.utils.json_to_sheet(data);
   const wb = XLSX.utils.book_new();
